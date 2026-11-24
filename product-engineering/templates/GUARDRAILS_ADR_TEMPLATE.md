@@ -8,7 +8,7 @@
 ## Locks (enforced, not prompted)
 
 - **Dev-time**: [deny rules, hook, dev credentials without delete, sandbox, branch or database copy for high risk]
-- **Runtime (AI features)**: [least-privilege tools, argument validation, approval on irreversible actions, PII redaction, untrusted text labeled; checked at launch by `product-launch-audit`]
+- **Runtime (AI features)**: [least-privilege tools, argument validation, approval on irreversible actions, personal-data minimization and redaction or approved verified data-flow gate, untrusted text labeled; checked at launch by `product-launch-audit`]
 - **Proof**: [the `[Guardrail]` / `[Abuse]` T scenarios that show each lock holds]
 
 ## What could still go wrong

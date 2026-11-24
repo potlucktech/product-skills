@@ -18,6 +18,15 @@
 - **Effort budget**: [What they'll tolerate per item and per session: taps, waits, review]
 - **Goals**: [What they come to accomplish; outcome when successful]
 
+## Potential Risk Profiles
+
+*Flag relevant product characteristics and their use cases, affected users or data, and material
+unknowns for architecture to assess. Examples include generative AI, sensitive personal data,
+healthcare, payments, and consequential decisions; profiles may overlap. Do not infer regulatory
+obligations or prescribe detailed safeguards from a label. State "None identified" if applicable.*
+
+- [Profile, relevant use case and data, and unknowns]
+
 ## Core Hypothesis
 
 - **Hypothesis**: [The one belief that, if false, makes this not worth building]
@@ -39,7 +48,7 @@
 
 ## Metrics & Observability
 
-*What to measure, not which tools or event names; `product-engineering` chooses the analytics platform and defines the events.*
+*What to measure, not which tools or event names; `product-architecture` proposes the analytics approach for approval, and `product-engineering` defines and implements the events.*
 
 ### 1. Acquisition & Discovery
 *How users arrive at the product.*

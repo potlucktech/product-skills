@@ -9,6 +9,12 @@ Two kinds, handled in different places:
 | **Dev-time** | The agent that builds the app | Phase 0 setup (`scripts/gen_guardrails.py`) | `check_loop.py` + Phase 5 verifier |
 | **Runtime** | The AI features inside the app | The unit that builds the feature | `product-launch-audit` before real users |
 
+Risk profiles identify additional product-specific safeguards and gates, which may include
+runtime controls beyond AI. They do not automatically modify dev-time locks or override them.
+Keep existing locks in force; if a profile reveals a need to change protected guardrail
+configuration, a human must make the change by hand and record the required ADR. Plan and verify
+applicable safeguards before the data or use they protect is enabled, even at an early stage.
+
 ## Setup (once, by a human, in Phase 0)
 
 1. `python scripts/gen_guardrails.py --init --git-hook --ci` copies `templates/guardrails/guardrails.json` to `.agent/guardrails.json` and generates each agent's config from it, the pre-commit hook, and a GitHub Actions workflow. Run it yourself: the generated files are protected from the agent. Commit and push `.github/workflows/guardrails.yml`; nothing else is needed on GitHub.
@@ -101,9 +107,9 @@ When the product has a sign-in gate, the skeleton ships a one-click way in for l
 1. The bypass route (e.g. `/dev/signin`) is registered only when `ENV=dev`; in every other environment it doesn't exist (404).
 2. The app refuses to start when the bypass flag is set with `ENV=prod`.
 3. The deploy config never sets the flag (a test parses it).
-4. It creates the same session real sign-in creates; the auth check on every other route is unchanged.
+4. It creates the same session real sign-in creates; existing auth checks on protected routes are unchanged.
 
-Proof: `[Guardrail]` T scenarios for 1–3, and the skeleton's "every route needs auth" test still passes. The unit that adds it cites a guardrails ADR naming these locks (auth work is high risk).
+Proof: `[Guardrail]` T scenarios for 1–3, and tests still enforce the approved access boundary: account-owned and private data require verified identity; explicitly approved anonymous paths have their own appropriate protections. The unit that adds the bypass cites a guardrails ADR naming these locks (auth work is high risk).
 
 ## Production data
 
@@ -120,7 +126,12 @@ Built into the unit that adds the AI feature, proved by its `[Guardrail]` / `[Ab
 1. Least-privilege tools: if the feature doesn't need it, the tool doesn't exist.
 2. Schema validation and allowlists on every tool argument.
 3. Approval bound to the exact action for anything irreversible.
-4. PII redacted before the model call.
+4. Minimize personal data sent to the model and redact identifiers unless demonstrably needed
+   for the approved use. If identifying data is necessary, keep that use disabled until the
+   user approves the data flow and applicable privacy, security, provider terms and required
+   legal or domain review have been verified. Test the approved boundary; do not treat user
+   approval alone as verification. Existing stricter locks and accepted ADRs remain in force
+   until changed through their required human-controlled process.
 5. Retrieved and uploaded text labeled as untrusted evidence, never as instructions.
 
 Break the trifecta: never give one feature private data + untrusted content + a way to send data out.

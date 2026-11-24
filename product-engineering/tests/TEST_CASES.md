@@ -6,7 +6,7 @@ Use these scenarios to verify that `product-engineering` advances naturally betw
 
 ## Test Case 1: Product Flows ($F_1..F_m$) $\to$ Milestone Plan & Tradeoff Alignment
 
-**Precondition:** `specs/product/reading-list.md` exists (from `product-scoping` Test Case 1) with flows `F1..F4`.
+**Precondition:** `specs/product/reading-list.md` exists (from `product-scoping` Test Case 1) with flows `F1..F4`, and `specs/product/architecture-plan.md` is approved.
 
 **Prompt:**
 > "Let's plan and build this milestone using product-engineering."
@@ -14,12 +14,13 @@ Use these scenarios to verify that `product-engineering` advances naturally betw
 **Expected Stage 1 Behavior (Pass Criteria):**
 1. **No subcommand memorization required:** Detects that no active milestone exists in `active/` and enters Phases 1–2 automatically.
 2. **Checks `CONFIG.md` against repo stack:** Verifies `TEST_COMMAND`, `LINT_COMMAND`, and `FORMAT_COMMAND` match the project's actual toolchain.
-3. **Pauses on Architectural Tradeoffs first:** Before generating unit files, asks the user to confirm key technical choices (e.g., storage mechanism such as SQLite vs. JSON/in-memory, HTML parser library vs. stdlib) framed in terms of user impact vs. engineering cost.
+3. **Respects the architecture baseline:** Reads the approved plan, identifies relevant defaults, ownership boundaries, later components and gates, and asks about genuinely new material tradeoffs rather than re-approving settled choices.
 4. **Generates Complete Upfront Unit Contracts:** Once aligned, writes `history/decisions/001-*.md` (if needed), `active/01-reading-list/plan.md` (from `PLAN_TEMPLATE.md`), and all unit contracts (`active/01-reading-list/units/01..N-*.md`) with:
    - **Sequence:** Unit 01 = walking skeleton (`infra`, serves `all`, includes the load-bearing data scoping key); next units serve F1 [P0]; then P1/P2 flows; last unit = `reporting` (dashboard/queries over instrumented events).
    - Every flow mapped into explicit **Automated Tests ($T_1..T_n$)**, **Manual E2E Scenarios ($M_1..M_k$)**, and a **Testable after this unit** outcome.
    - Every journey unit lists **Instrumentation** events (view + primary action per capability; hypothesis-metric events in the P0 unit) and has an `[Instrumentation]` T scenario asserting them.
    - Every journey unit has an end-to-end `(e2e)` T scenario automating its happy path; every `[Live]` M scenario states its cost per run.
+   - The plan links the architecture baseline; each unit links it and carries only its relevant boundaries and gates. A component needed by a P2 flow arrives with that flow, not automatically in the skeleton.
    - Zero placeholder units; `check_loop.py plan` returns `"ok": true`.
 5. **Pauses at Checkpoint 1** for user approval before writing production code.
 
@@ -93,6 +94,60 @@ python .claude/skills/product-engineering/scripts/check_loop.py 01
 - Spec flows out of tier order, or F1 not P0 → `Spec flows must be ordered P0 → P1 → P2` / `Spec flow F1 must be P0`.
 
 With all defects fixed, `"ok": true` and exit code `0`.
+Architecture links, approval, and consistency are manually checked by the orchestrator; the
+validator does not currently enforce them.
+
+---
+
+## Test Case 5a: Architecture Baseline and Staged Components
+
+**Setup:** An approved architecture names PostgreSQL as the primary source of truth and Redis
+as an approved supporting store for a concrete P2 flow. Redis is not needed by P0.
+
+**Expected:**
+- The milestone still covers every P0–P2 flow; Redis is introduced for the P2 flow, not the skeleton.
+- The relevant unit links the plan and records PostgreSQL's ownership and Redis's limited role.
+- The maker checks the approved need, boundary and cost before adding Redis. If these changed, it
+  returns `BLOCKED:` for a focused review; it does not silently change the primary database.
+- The verifier checks touched boundaries; the scribe records shipped status without rewriting
+  approved decisions. Routine units do not trigger another architecture review.
+
+## Test Case 5b: Explicit Analytics Deferral
+
+**Setup:** The user approves deferred vendor setup with offline tests and a real-user release gate.
+
+**Expected:**
+- Setup records the deferral; the milestone and affected contracts carry it forward.
+- Offline instrumentation is tested; skipped vendor checks are reported as unverified, not passed.
+- The P0 measurement checkpoint remains blocked until events arrive; P1 does not start before it.
+- Replay is not enabled unless separately approved and its privacy and usage gates hold.
+
+## Test Case 5c: User-initiated Skill Handoffs
+
+**Setup:** An approved architecture baseline is missing, or a proposed change materially
+changes data ownership. In a separate case, the product is ready for real users.
+
+**Expected:**
+- Engineering explains why the user should run `/product-architecture` and stops before
+  selecting services or building affected work; it does not invoke that skill itself.
+- After the user supplies an approved plan or impact review, Engineering can resume.
+- Before real users, Engineering asks the user to run `/product-launch-audit` and waits for
+  results; it neither invokes the audit automatically nor bypasses the launch gate.
+
+## Test Case 5d: Risk Profiles and Staged Safeguards
+
+**Setup:** An approved plan describes a generative AI feature using synthetic test data first,
+with an initial evaluation and a privacy/provider gate before real health data may be sent.
+It defers broader evaluation coverage until a specified later usage trigger.
+
+**Expected:**
+- The milestone and relevant units map the initial evaluation, verification and privacy gate
+  before the first real-data use; they retain the interim synthetic-only boundary.
+- Broader evaluation is recorded as deferred with its owner and trigger rather than required
+  in the skeleton. Existing dev-time locks are not loosened.
+- A new provider or change in health-data handling that conflicts with the approved plan stops
+  affected work for a user-initiated architecture review.
+- Unverified prerequisites prevent the gated use, including when a user requests early release.
 
 ---
 
@@ -123,4 +178,3 @@ With all defects fixed, `"ok": true` and exit code `0`.
 5. **Loosening needs an ADR:** asked to "just turn off the hook for now", the agent explains the config is protected and a change needs your hand plus a new ADR.
 
 `python3 -m unittest discover -s tests` covers the generator, the hook, and the `check_loop.py` guardrail, contract, test-token, and plan checks.
-

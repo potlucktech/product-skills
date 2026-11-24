@@ -14,7 +14,16 @@ description: >-
 
 Turns a product idea or feature request into `specs/product/<slug>.md`: a core hypothesis, prioritized scope, metrics, and priority-ordered user flows ($F_1..F_m$) that `product-engineering` plans, builds, and tests against.
 
-**Progression**: Stage 1 Ground & Challenge (draft spec written) → ⏸ → Stage 2 Prioritize, Metrics & Flows (spec updated) → ⏸ → Stage 3 Finalize Spec → optional `product-design` pass. Pause at each ⏸ for the user's decisions unless they explicitly ask to skip ahead; when skipping, still apply every rule below.
+**Where this fits**: `product-scoping` defines the user problem, priorities, flows, constraints,
+and success measures. For a new product, `product-architecture` uses that context to propose
+project-wide technology choices, data ownership, and system boundaries for user approval;
+`product-engineering` then turns the approved scope and architecture into tested implementation
+units. Scoping identifies technical constraints and tradeoffs but does not select the stack.
+For an existing product, read `specs/product/architecture-plan.md` when present to understand
+the current baseline. A feature that materially changes it needs an architecture review;
+otherwise engineering proceeds against the existing decisions.
+
+**Progression**: Stage 1 Ground & Challenge (draft spec written) → ⏸ → Stage 2 Prioritize, Metrics & Flows (spec updated) → ⏸ → Stage 3 Finalize Spec → recommend architecture when needed and optional design. Pause at each ⏸ for the user's decisions unless they explicitly ask to skip ahead; when skipping, still apply every rule below. Do not invoke another skill automatically; tell the user what to run next and stop.
 
 ---
 
@@ -34,7 +43,7 @@ Turns a product idea or feature request into `specs/product/<slug>.md`: a core h
 - **Unfilled sections** say `*TBD*`, never template brackets.
 - **Open Questions**: every question you ask goes here, numbered, with your recommendation.
 - **When the user answers**, before anything else: edit every section the answer affects so the spec reads as if it had always said this, then delete the question from Open Questions. Don't keep a decision log; the answer lives in the spec itself. 
-- Describe behavior from the user's side. File paths, function names, library details, analytics tools, event names, and session-replay setup belong to `product-engineering` and `specs/engineering/`. The product spec says *what we need to learn* (e.g. "how often an opened recipe is cooked", "where users stall in F1"); engineering picks the tool and names the events.
+- Describe behavior from the user's side. File paths, function names, library details, analytics tools, event names, and session-replay setup belong in the architecture plan and engineering artifacts, not the product spec. The product spec says *what we need to learn* (e.g. "how often an opened recipe is cooked", "where users stall in F1"); architecture proposes the approach for approval, and engineering names and implements the events.
 
 ---
 
@@ -66,6 +75,7 @@ Turns a product idea or feature request into `specs/product/<slug>.md`: a core h
 5. **Audit each requested capability** (system side):
    - **Actor & trigger**: who starts it, from what state, behind what auth boundary.
    - **Data & persistence**: where input comes from, what is persisted vs. computed, what cold start looks like.
+   - **Potential risk profiles**: flag product characteristics that need further discussion, such as generative AI, personal or sensitive data, healthcare, payments, or consequential decisions. Note the relevant use case, affected users or data, and material unknowns; profiles may overlap and this list is not exhaustive. Do not infer legal obligations or prescribe detailed controls from a label.
    - **Complexity multipliers**: new tables, multi-user or roles, real-time sync, schedulers or background jobs, external APIs, notifications.
    - **Failure reality**: malformed, empty, or over-limit input; a dependency failing mid-flow; the user leaving mid-flow at realistic volume.
 6. **Push back.** For every multiplier, propose the cheaper mechanism that delivers the same user outcome now, and rank the full version later. Before proposing it, re-walk the affected step 3 journeys with it in place: if it pushes the user over their effort budget at realistic volume, it doesn't deliver the same outcome, so reject it. Prefer cutting system cost the user doesn't feel (batching, async, background processing) over limits they hit.
@@ -76,7 +86,7 @@ Turns a product idea or feature request into `specs/product/<slug>.md`: a core h
    For the P0 journey, also compare two whole ways to deliver it, not only cheaper versions of one (e.g. recipes come in by photo upload and vision parse, vs. syncing an existing photo album, vs. typing). Name the one you'd build first and why.
 
    If you recommend cutting or downgrading fewer than ~30% of the requested capabilities, state why the request is already minimal.
-7. **Write the draft spec** (`Draft — Stage 1`): Users & Goals (including moments, realistic volume, and effort budget), Core Hypothesis (including How to validate), a first pass at Scope & Priorities (each downgrade names both mechanisms), the 10-star experience under Deferred, and Open Questions. Metrics and flows are `*TBD (Stage 2)*`. The audit tables stay out of the file.
+7. **Write the draft spec** (`Draft — Stage 1`): Users & Goals (including moments, realistic volume, and effort budget), Core Hypothesis (including How to validate), a first pass at Scope & Priorities (each downgrade names both mechanisms), potential risk profiles and unknowns, the 10-star experience under Deferred, and Open Questions. Metrics and flows are `*TBD (Stage 2)*`. The audit tables stay out of the file.
 8. **Present** in this order, need-to-know only. **Stop and wait.**
    0. **Spec**: the draft's path, one line.
    1. **Building**: one sentence.
@@ -121,7 +131,9 @@ Turns a product idea or feature request into `specs/product/<slug>.md`: a core h
 
    Write each P0 flow's steps from the moment it serves, at its volume (e.g. "User selects 240 photos", not "User selects photos").
 
-   For multi-actor concurrency, offline state, or AI outputs, cross-check against the 8 universal scenario dimensions (`product-engineering/references/scenarios.md`).
+   For multi-actor concurrency, offline state, or AI outputs, cross-check the relevant dimensions:
+   actor and access, flow paths and abandonment, data volumes and state, input boundaries, AI
+   failures, human agency and recovery, network and concurrency, and platform and accessibility.
 4. **Update the spec** (`Draft — Stage 2`): full Scope & Priorities, Metrics & Observability, every flow in full (P1/P2 flows included), and the remaining Open Questions.
 5. **Present** in this order, need-to-know only. Chat shows the short form; the spec holds the full flows. **Stop and confirm before finalizing.**
    1. **Updated by the answers**: a few lines on what the user's answers changed.
@@ -136,4 +148,4 @@ Turns a product idea or feature request into `specs/product/<slug>.md`: a core h
 
 1. Re-read the spec. Apply the last answers. Open Questions must be empty; any still open become a Known Gap, or take the recommended default written into the section it affects. No `*TBD*` left. Core Hypothesis has How to validate and Why this P0 is enough. No analytics tools or event names in the spec. Set the status to `Final`.
 2. Link the spec from `specs/README.md` if one exists.
-3. Hand off: for UI-facing products, offer `product-design` to render mocks from the spec's real copy and flows and embed the chosen ones in `## UI Design & Mocks`. Then `product-engineering`.
+3. **Recommend next steps, then stop:** For a new product, or a feature that changes data ownership or sensitivity, authentication, integrations, deployment, reliability, costs, or another foundational boundary, tell the user to run `/product-architecture` before engineering planning. For UI-facing products, recommend `/product-design` for mocks based on the spec's flows and copy before UI implementation planning. Identify the finalized spec path and explain what each next skill will use. Do not invoke either skill automatically; the user chooses when to run it.

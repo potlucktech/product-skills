@@ -6,7 +6,7 @@ For the `loop-verifier` / `loop-verifier-strict` subagent. You get the unit cont
 
 Run `python .claude/skills/product-engineering/scripts/check_loop.py NN` and inspect the JSON:
 - Test suite exit code and summary, across every automated tier (unit, integration, end-to-end, free live).
-- **Skipped free live tests**: any `skipped: no dev key` is a finding at certainty 7+, unless the contract marks that service as not set up yet.
+- **Skipped free live tests**: any `skipped: no dev key` is a finding at certainty 7+, unless the contract records a user-approved setup deferral. In that case explicitly report live delivery as unverified and preserve its release gate.
 - Linter and formatter exit codes.
 - Full mapping of T1..Tn tokens to tests. Zero missing tokens.
 - `hygiene`: likely hardcoded secrets in changed files (fails the gate), and route files that mention no auth (heuristic: read each and confirm or dismiss it with file:line).
@@ -19,7 +19,7 @@ Run `python .claude/skills/product-engineering/scripts/check_loop.py NN` and ins
 - **Reachability**: a step a person can't perform once this unit ships (it needs a later unit, an account or key the human doesn't have, or a particular time of day without a dev override) is a finding at certainty 7+, not "pending human". "Pending human" is only for steps a person can do but you can't, such as a check on a real phone.
 - Confirm UI components, responsive breakpoints, error recovery states, and navigation work as specified.
 - Apply the `VIEWPORT_BREAKPOINTS` and `PARITY_REFERENCE_URL` rules in `CONFIG.md`.
-- Instrumentation: the `[Instrumentation]` T scenario covers events offline; the `[Live]` T covers arrival in the dev project. When the read-back is semi-automated, use the orchestrator's result and say so in the verdict ([Analytics](analytics.md)).
+- Instrumentation: the `[Instrumentation]` T scenario covers events offline; applicable vendor `[Live]` tests cover arrival in the dev project. A first-party mechanism uses its appropriate integration tests. If read-back is semi-automated, use the orchestrator's result and say so in the verdict ([Analytics](analytics.md)).
 - Paid `[Live]` walkthroughs: confirm each states its cost and when it runs. Don't run them; they run at the Phase 6 checkpoint.
 
 ## 2b. Tier audit
@@ -36,6 +36,10 @@ Run `python .claude/skills/product-engineering/scripts/check_loop.py NN` and ins
 ## 4. Semantic acceptance criteria audit
 
 Check every `Acceptance Criteria` checkbox against the actual code and runtime behavior.
+Check the unit's relevant architecture boundaries and release/usage gates against the diff and
+tests. Consult its linked architecture plan when the unit touches a material decision or
+change; flag an unapproved conflict or changed boundary instead of treating planned future
+components as missing implementation.
 
 ## 5. Test edits and scope drift
 
@@ -66,8 +70,8 @@ Return this table, then the findings:
 | Manual E2E Tests (M1..Mk) | PASS | All browser walkthroughs verified |
 | CI & Linter Gates | PASS | Tests green; 0 lint/format warnings |
 | Seam & Architecture Invariants | PASS | Logic isolated in core; scoping verified |
-| Test tiers | PASS | Unit/integration/e2e/live as the contract lists; e2e happy path drives the browser; no free live test skipped |
-| Instrumentation | PASS | `[Instrumentation]` T passes; catalogue in sync; `[Live]` T confirms arrival in the dev project (or semi-automated read-back, labelled) |
+| Test tiers | PASS | Required tiers as contracted; e2e happy path drives the browser; any approved live deferral explicitly reported |
+| Instrumentation | PASS | Offline T passes; catalogue in sync; applicable live delivery verified, or approved deferral explicitly reported as unverified |
 | Semantic Acceptance Criteria | PASS | All bullet criteria verified |
 | Guardrails (risk: low/medium/high) | PASS | Locks for this level present; negative tests pass; config unchanged or ADR'd |
 | Test Edits & Scope Drift | PASS | Every test edit traced to the contract; no unrequested changes |

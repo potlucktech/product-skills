@@ -32,8 +32,9 @@ VIEWPORT_BREAKPOINTS: 1440, 1280, 991, 767, 479, 375
 # min-width/max-width media queries so wide-screen tiers aren't missed.
 PARITY_REFERENCE_URL: 
 
-# Analytics (in-app events & session replay via posthog or mixpanel; traffic acquisition via google-analytics).
-# Separate dev and prod projects, each with its own key in env; a human creates them in Phase 0.
+# Illustrative analytics values only: replace them with the approved architecture's mechanism.
+# Session replay is a separate opt-in; these fields do not enable it. Where a vendor needs projects,
+# separate dev and prod; a human configures keys in Phase 0 or records an approved setup deferral.
 ANALYTICS_PLATFORM: mixpanel
 # How the agent reaches it: an MCP server name or an API base URL (keys stay in env, never here)
 ANALYTICS_ACCESS: mcp:mixpanel
@@ -61,4 +62,3 @@ CODEX_MODELS: top=gpt-6-astra, mid=gpt-6.1-sol, small=gpt-6-luna
 REQUIRE_MAKER_VERIFIER_SEPARATION: true
 AUTO_COMMIT: false
 DETERMINISTIC_LOGIC_ISOLATED: true
-

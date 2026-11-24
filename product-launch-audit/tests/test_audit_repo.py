@@ -1,13 +1,18 @@
 """Stdlib tests for audit_repo.py. Run: python3 -m unittest discover -s product-launch-audit/tests"""
 
 import json
+import importlib.util
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 AUDIT = Path(__file__).resolve().parent.parent / "scripts" / "audit_repo.py"
+SPEC = importlib.util.spec_from_file_location("launch_audit", AUDIT)
+audit = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(audit)
 
 
 class AuditCase(unittest.TestCase):
@@ -31,7 +36,7 @@ class AuditCase(unittest.TestCase):
 class PaidKeyTests(AuditCase):
     def test_one_spend_row_per_paid_service(self):
         self.write("requirements.txt", "openai==1.0\nfastapi\n")
-        self.write(".env.example", "GEMINI_API_KEY=\nELEVENLABS_API_KEY=\n")
+        self.write("config.example.txt", "GEMINI_API_KEY=\nELEVENLABS_API_KEY=\n")
         checks = self.checks()
         for service in ("OpenAI", "Google Gemini", "ElevenLabs"):
             with self.subTest(service=service):
@@ -85,11 +90,67 @@ class CiSecretScanTests(AuditCase):
         self.write(".github/workflows/test.yml", "jobs:\n  test:\n    steps:\n      - run: pytest\n")
         self.assertEqual(self.checks()["ci_secret_scan"]["status"], "warn")
 
-    def test_ci_with_scanner_passes(self):
+    def test_ci_with_scanner_needs_verification(self):
         for step in ("uses: gitleaks/gitleaks-action@v2", "run: python3 check_loop.py guardrails", "run: trufflehog git file://."):
             with self.subTest(step=step):
                 self.write(".github/workflows/test.yml", f"jobs:\n  scan:\n    steps:\n      - {step}\n")
-                self.assertEqual(self.checks()["ci_secret_scan"]["status"], "pass")
+                self.assertEqual(self.checks()["ci_secret_scan"]["status"], "manual")
+
+
+class ProtectedFileTests(unittest.TestCase):
+    def test_skips_sensitive_paths_before_reading(self):
+        root = Path("/synthetic")
+        entries = [
+            (str(root), ["secrets", "src"], [".env", ".env.example", ".env.local", "cert.pem", "secret.key", "app.py"]),
+            (str(root / "src"), [], [".env.production", "route.ts"]),
+        ]
+        with patch.object(audit.os, "walk", return_value=iter(entries)):
+            files = audit.list_files(root)
+        self.assertEqual(files, [root / "app.py", root / "src" / "route.ts"])
+        self.assertNotIn("secrets", entries[0][1])
+        for path in (root / ".env", root / "src" / ".env.production", root / "secrets" / "file.txt", root / "cert.pem", root / ".agent" / "guardrails.json"):
+            with self.subTest(path=path), patch.object(Path, "read_text", side_effect=AssertionError("must not read")):
+                self.assertRaises(ValueError, audit.read, path)
+
+    def test_env_review_is_explicit(self):
+        with tempfile.TemporaryDirectory() as root:
+            result = subprocess.run([sys.executable, AUDIT, root], capture_output=True, text=True)
+            checks = {c["id"]: c for c in json.loads(result.stdout)["checks"]}
+        self.assertEqual(checks["env_contents"]["status"], "manual")
+        self.assertIn("user", checks["env_contents"]["detail"].lower())
+
+
+class HeuristicTests(AuditCase):
+    def test_ai_data_check_requires_minimization_and_verified_conditions(self):
+        self.write("package.json", '{"dependencies":{"openai":"1"}}')
+        row = self.checks()["ai_pii_redaction"]
+        self.assertEqual(row["status"], "manual")
+        for phrase in ("minimized", "redacted", "necessary", "approved", "verified"):
+            self.assertIn(phrase, row["detail"].lower())
+
+    def test_heuristics_do_not_claim_security_controls_pass(self):
+        self.write("package.json", '{"dependencies":{"openai":"1", "zod":"1", "sentry":"1", "express-rate-limit":"1"}}')
+        self.write("app.ts", "app.get('/private', () => {}) // auth\n")
+        checks = self.checks()
+        for key in ("endpoints_without_auth", "secrets_in_source", "ai_tool_review", "ai_validation", "rate_limit", "error_tracker"):
+            with self.subTest(key=key):
+                self.assertNotEqual(checks[key]["status"], "pass")
+
+    def test_absent_error_tracker_is_warning_not_failure(self):
+        self.assertEqual(self.checks()["error_tracker"]["status"], "warn")
+
+    def test_rls_enable_statement_is_not_a_verified_policy(self):
+        self.write("package.json", '{"dependencies":{"@supabase/supabase-js":"1"}}')
+        self.write("schema.sql", "CREATE TABLE profiles (id text); ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;")
+        self.assertEqual(self.checks()["rls"]["status"], "manual")
+
+    def test_no_secret_pattern_match_is_not_a_security_pass(self):
+        self.write("app.ts", "const value = 'safe placeholder';")
+        self.assertEqual(self.checks()["secrets_in_source"]["status"], "manual")
+
+    def test_cloudflare_jsonc_is_recognized(self):
+        self.write("wrangler.jsonc", "{}")
+        self.assertEqual(self.checks()["infra_token:Cloudflare"]["status"], "manual")
 
 
 if __name__ == "__main__":

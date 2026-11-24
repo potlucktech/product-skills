@@ -1,6 +1,6 @@
 # Milestone NN — [Milestone Name]
 
-*Built from [`specs/product/<slug>.md`](../../specs/product/<slug>.md). Every unit below has a contract in `units/`. Order: walking skeleton → P0 → P1 → P2 → reporting. Validate with `check_loop.py plan`.*
+*Built from [`specs/product/<slug>.md`](../../specs/product/<slug>.md) and the approved [architecture plan](../../specs/product/architecture-plan.md). Every unit below has a contract in `units/`. Order: walking skeleton → P0 → P1 → P2 → reporting. Validate with `check_loop.py plan`.*
 
 ## Target End State
 
@@ -18,6 +18,18 @@
 | 06 | Analytics dashboard & reports | reporting | all | — | todo |
 
 *`Type`: infra · journey · reporting. `Serves`: flow ids, or `all`. `Tier` = most important tier among the flows served. **P0 checkpoint** comes after the last P0 unit.*
+
+## Architecture for This Milestone
+
+*Summarize only the relevant decisions. Keep existing defaults and ownership boundaries; don't
+introduce later components early. A later need may be a later unit in this milestone. State why
+the approved baseline is still sufficient.*
+
+- **Initial delivery:** [Approved decisions and components, with plan links]
+- **Later / not applicable:** [Concrete needs and their planned unit or later milestone and triggers]
+- **Interim boundaries and gates:** [Safeguards needed before a deferred control is implemented, and the release/usage gate; or none]
+- **Risk-profile safeguards:** [Applicable safeguards and AI evaluation coverage mapped to units and verification before the relevant use; deferred work, interim boundaries, owners and triggers; or none]
+- **Baseline assessment:** [Why it remains sufficient, or link to an approved impact review]
 
 ## Load-Bearing Decisions
 

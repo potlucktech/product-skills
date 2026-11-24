@@ -139,7 +139,7 @@ Goal: everything the builders and critic need, gathered once. Skip any step alre
 **1. Check `specs/product/` (works with `product-scoping` & `product-engineering`):**
 Look in `specs/product/` for an existing product specification.
 - **If a product spec exists:** Read the target users/personas, goals, scoped features, and Key User Flows ($F_1..F_m$) so the mocks reflect the exact scoped screens and fields without inventing unrequested features.
-- **If no product spec exists:** Ask if the user wants to scope one first or jump straight into designing (do **not** require a spec if they want to design directly).
+- **If no product spec exists:** Ask if the user wants to scope one first or jump straight into designing (do **not** require a spec if they want to design directly). If they choose scoping, recommend they run `/product-scoping` and stop; do not invoke it automatically.
 
 **2. Ask for the user's taste.** Reference apps or sites, vibes they like, things they hate.
 Start `TASTE.md` with the answers (see Stage 2). Reference apps also feed the Stage 2 critic.
@@ -470,7 +470,8 @@ subtraction. Apply passes one at a time, screenshot after each, stop for confirm
 **Exit Stage 3** when all three passes are approved, the copy has had a human pass, and the
 spec is synced. Close with a handoff summary: final screenshot, the direction in one line,
 file paths, what changed in the spec, and what's still open for the user (copy lines not yet
-rewritten, real photos still missing). Next step: `product-engineering`.
+rewritten, real photos still missing). Recommend `/product-engineering` as a next step when the
+user is ready to build; do not invoke it automatically.
 If the user locks the design early or skips stages, still sync the spec and close with this
 handoff summary.
 

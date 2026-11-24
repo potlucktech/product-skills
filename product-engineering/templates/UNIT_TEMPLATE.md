@@ -7,6 +7,7 @@
 - **Tier**: [P0 | P1 | P2 | —]
 - **Risk**: [low | medium | high]. Worst case if the agent gets this wrong, and can it be undone? See `references/guardrails.md`. Unsure: take the higher level.
 - **Guardrails ADR**: [ADR-NNN]. Low risk cites the baseline ADR from Phase 0; medium and high write their own, and so does any design-system change (tokens, theme, global styles, shared components) at any risk level. UI copy cites the baseline from `templates/GUARDRAILS_ADR_TEMPLATE.md`.
+- **Baseline guardrails ADR**: [ADR-NNN, when different from the unit's own ADR]
 
 ## Scope & User Story
 
@@ -25,9 +26,11 @@
 
 ## Architectural Seam & Data Boundaries
 
+- **Architecture plan**: [Approved project baseline](../../../specs/product/architecture-plan.md). Consult it when making or changing a material decision; stop and escalate a conflict or new boundary.
 - **Boundary / Seam**: [Which modules own the logic? e.g. Domain core vs Web Route]
 - **Data Models / Schema**: [Any new tables, columns, or migration numbers]
 - **Tenancy / Security Scoping**: [How isolation or authentication is guaranteed at the boundary]
+- **Relevant decisions and gates**: [Only essential defaults, ownership boundaries, interim safeguards and release/usage gates for this unit; cite decision or ADR. State none if not applicable.]
 
 ---
 
@@ -69,7 +72,7 @@
 - **T4 [Guardrail] (integration)** — *(medium and high risk)* [Each lock holds: the blocked action stays blocked, e.g. an unapproved recipient is rejected, a delete with the dev login fails]
 - **T5 [Abuse] (integration)** — *(high risk)* [Injection in a document does nothing, wrong-tenant access denied, replayed request rejected]
 - **T6 [Data Invariant / Security / Concurrency] (integration)** — [Data scoping, idempotency, or invariant held]. *Fails if broken: [e.g. duplicate records]*. *Doesn't prove: [what a pass leaves untested, e.g. a mocked clock says nothing about the user's timezone] (optional)*
-- **T7 [Instrumentation] (integration + e2e)** — *(journey units)* Drive each flow in this unit; assert every event in section C fires with its listed properties via the fake sink's `assert_tracked` (server) and the intercepted analytics requests (browser). New events added to the catalogue. *Fails if broken: the metrics this unit feeds are silently empty.*
+- **T7 [Instrumentation] (integration + e2e)** — *(journey units)* Drive each flow in this unit; assert every event in section C fires with its listed properties via the fake sink's `assert_tracked` (server) and intercepted analytics requests or the offline seam (browser). New events added to the catalogue. *Fails if broken: the metrics this unit feeds are silently empty.*
 - **T8 [Live] (live)** — *(units that call a free outside service)* [Run the flow against the real dev/sandbox service and read back the result, e.g. each section C event arrives in the dev analytics project with its properties, tagged with the run id]. Skipped and reported when the dev key is absent. *Fails if broken: [the real service rejects or drops what we send]*
 
 *End-to-end coverage: `[tests/e2e/test_NN_*.py]` ([which T tokens]). Live coverage: `[tests/live/test_NN_*.py]` ([which T tokens]).*
@@ -96,10 +99,11 @@
 
 ## Acceptance Criteria
 
-- [ ] All automated test cases (`T1..Tn`) pass green; free live tests ran (not skipped) or the service is marked not set up yet.
+- [ ] Offline automated test cases (`T1..Tn`) pass; free live tests pass, or a user-approved deferral is documented and live delivery is reported unverified.
 - [ ] All manual E2E scenarios (`M1..Mk`) verified and documented.
 - [ ] Every Instrumentation event fires with its listed properties.
 - [ ] Locks for this unit's risk level exist and their `[Guardrail]` / `[Abuse]` tests pass; guardrail config unchanged, or the change is in the cited ADR.
+- [ ] Relevant architecture ownership boundaries and interim safeguards hold; any release/usage gate remains explicit.
 - [ ] [Semantic criterion 1: e.g. Domain logic is 100% deterministic and isolated from UI]
 - [ ] [Semantic criterion 2: e.g. Seam separation respected, no leak across boundaries]
 - [ ] [Behavioral / E2E criterion: e.g. Web UI renders correctly at every width in `VIEWPORT_BREAKPOINTS`]
