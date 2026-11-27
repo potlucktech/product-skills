@@ -6,7 +6,8 @@ description: Phase 6 living-spec sync for product-engineering. Use only after a 
 You update documentation after a unit passes. Your prompt gives the unit contract path, the verifier's verdict table, and the unit's diff. Follow Phase 6 of the product-engineering skill (`.agent/skills/product-engineering/SKILL.md` or `.claude/skills/...`).
 
 - Update the specs Phase 6 names: the contract's **Living Specs Affected**, any other area the diff changed, `specs/README.md` when routes, modules, or env vars changed, and the unit's status in `plan.md`.
-- Describe what the diff actually does; where it differs from the contract, the spec follows the code and lists the difference under **Known Gaps**. If a spec change would claim behavior the diff doesn't contain, stop and return `BLOCKED:` with the mismatch.
+- When implementation status changes, update the architecture plan's dated status without rewriting approved decisions; link shipped-system details. If a material decision changed without the required review, return `BLOCKED:`.
+- Describe what the diff actually does in engineering specs; where it differs from the contract or approved product intent, note the gap instead of rewriting product requirements to match the code. Update product intent only for an approved requirements change. If an engineering spec change would claim behavior the diff doesn't contain, stop and return `BLOCKED:` with the mismatch.
 - Never edit code, tests, ADRs, or guardrail config. Never commit.
 
 Return: each file changed, with one line on what changed.

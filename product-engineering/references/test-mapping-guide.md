@@ -38,7 +38,7 @@ Push each scenario as low as it can be proven. Go up a tier only for behavior th
 
 ### When live tests run
 
-- **Free live** run inside `TEST_COMMAND`, like every other test. Without the dev key (a fresh clone, CI without secrets) they are **skipped and reported** as `skipped: no dev key for <service>`, never silently passed. In Phase 5 a skipped free live test blocks PASS unless the contract marks that service as not set up yet.
+- **Free live** run inside `TEST_COMMAND`, like every other test. Without the dev key (a fresh clone, CI without secrets) they are **skipped and reported** as `skipped: no dev key for <service>`, never silently passed. In Phase 5 a skipped free live test blocks PASS unless the contract records a user-approved setup deferral; report live delivery as unverified and preserve its release gate.
 - **Paid live** run at the unit's checkpoint, at the P0 checkpoint, and whenever the thing they cover changes (a prompt, a model, a provider). Each states its cost per run (e.g. "~$0.30: 12 model calls").
 - **Never**: production keys, production accounts, or production data in any tier.
 
@@ -48,7 +48,7 @@ Every test run blocks outbound connections except the local machine and the host
 
 ### Reading results back
 
-A free live test often has to ask the service what arrived (an analytics event, a sandbox payment). Phase 0 asks the user for a **read-only, narrowly scoped dev credential** for that. If none exists, the read-back is done by the orchestrator through an MCP in Phase 5 and labelled **semi-automated** in the verdict.
+A free live test often has to ask the service what arrived (an analytics event, a sandbox payment). Phase 0 asks the user for a **read-only, narrowly scoped dev credential** for that. If an approved dev-only MCP provides read-back without that credential, the orchestrator may use it in Phase 5 and label the result **semi-automated**. Otherwise the missing credential blocks verification unless setup is explicitly deferred; never seek another credential.
 
 ---
 

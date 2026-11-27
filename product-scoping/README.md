@@ -43,7 +43,7 @@ flowchart TD
     end
 
     final --> done([specs/product/&lt;slug&gt;.md])
-    done --> next[Next: product-design for UI,<br/>then product-engineering]
+    done --> next[Next: product-architecture when needed,<br/>product-design for UI,<br/>then product-engineering]
 
     classDef you fill:#fff4d6,stroke:#c99a2e,color:#3d2e00;
     class you1,you2 you;
@@ -57,7 +57,7 @@ Yellow boxes are where the skill stops and waits for you.
 |---|---|---|
 | End of Stage 1 | The draft spec path. The journey as you'd live it. The bet and how to validate it. Stories and features by tier, plus what was cut. | Answer 3–5 questions. Correct the moments and volumes first, since everything else depends on them. |
 | End of Stage 2 | What your answers changed. Priorities by tier. The success measure. Each flow in a few lines. | Confirm, or change anything. Changes loop back to Stage 2. |
-| Stage 3 | The final spec. | Choose whether to go to `product-design` or straight to `product-engineering`. |
+| Stage 3 | The final spec and recommended next steps. | Run `/product-architecture` when needed, optionally `/product-design` for UI, and `/product-engineering` when ready. The skill does not start them automatically. |
 
 You can say "skip ahead" at any stop. The rules still apply.
 
@@ -66,9 +66,11 @@ You can say "skip ahead" at any stop. The rules still apply.
 - `specs/product/<slug>.md`, from [templates/PRODUCT_SPEC_TEMPLATE.md](templates/PRODUCT_SPEC_TEMPLATE.md).
 - Core Hypothesis with **How to validate** and **Why this P0 is enough**.
 - Flows numbered in priority order, each tagged with its tier.
+- Potential risk profiles, their use cases and material unknowns for architecture to assess.
 - Open questions recorded in the spec with recommendations, and removed once you've answered them.
 
 ## Works with
 
 - [product-design](../product-design/README.md) renders mocks from the spec's flows and real copy.
+- [product-architecture](../product-architecture/README.md) establishes the system shape for new products and reviews consequential architecture changes.
 - [product-engineering](../product-engineering/README.md) plans, builds and tests against the flows.

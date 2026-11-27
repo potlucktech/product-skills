@@ -11,24 +11,52 @@ description: >-
 
 # product-launch-audit
 
-A one-time pre-launch check of an existing codebase. For per-unit checks during a build, use `product-engineering`.
+A pre-launch check of an existing codebase. Repeat it when launch conditions or material risks
+change. For per-unit checks during a build, use `product-engineering`.
 
 ## Inputs
 
-- **Stage**: `PMF` (default), `Growth` or `Scale`. Ask if unclear. The stage decides which rows of [CHECKLIST.md](CHECKLIST.md) apply.
+- **Stage**: Finding Product-Market-Fit (PMF), Growth or Scale. Use an already confirmed stage
+  from the approved architecture plan if available; otherwise briefly explain all three using
+  the [stage definitions](CHECKLIST.md#product-stages), then ask the user to confirm one. The
+  stage decides the checklist baseline, but actual risk may require stronger controls earlier.
 - **Path**: the repo to audit (default: current directory). It does not need to be a git repo or use product-engineering.
 
 ## Steps
 
-1. **Scan.** Run the mechanical checks and read the JSON:
+1. **Establish context.** Read the approved architecture plan and shipped engineering specs if
+   present, including risk profiles, access boundaries, operating assumptions and release or
+   usage gates. Independently identify relevant risks from actual use cases and data flows,
+   even without a plan. The plan is intent, not evidence that a control shipped.
+2. **Scan.** Run the mechanical checks and read the JSON:
    ```bash
    python .claude/skills/product-launch-audit/scripts/audit_repo.py <path>
    ```
-   Statuses: `pass`, `warn`, `fail`, `manual` (a human must check; the script cannot).
-2. **Verify heuristics.** `endpoints_without_auth` and `secrets_in_source` are pattern matches. Open each listed file and confirm or dismiss it with file and line. Never report a heuristic hit as confirmed without reading it.
-3. **Judge the rest.** For each pillar row in [CHECKLIST.md](CHECKLIST.md) at the chosen stage, check the code itself, not the framework's reputation. Cite file and line for every gap.
-4. **Handle `manual` rows.** Ask the user, or list them under "Not a code problem". Never mark one pass on a guess. Per-service rows (`paid_key:*`, `infra_token:*`) are answered from each provider's dashboard: a key whose provider can't cap it is a finding, not a pass.
-5. **Report** using the format below.
+   Statuses: `pass`, `warn`, `fail`, `manual` (verification needed). The script excludes all
+   `.env*`, `*.pem`, `*.key`, `secrets/`, `.agent/guardrails.json`, symlinks, and common generated
+   directories and lockfiles. Ask the user to check excluded environment files and credential
+   handling privately; never ask for or display secret values. Service detection cannot see
+   excluded files, so confirm the integration inventory with the user or safe configuration.
+3. **Verify heuristics.** Treat matches, no matches, and dependency or configuration presence
+   as leads, not proof. Verify actual route access and ownership, rate-limit enforcement,
+   model-tool validation and permissions, CI scanning, logging, and RLS policies where
+   applicable. Confirm or dismiss potential secret hits without exposing values. No match does
+   not prove absence; unsupported frameworks or integrations require manual review.
+4. **Judge the checklist.** Apply only the chosen stage and preceding stages, then assess each
+   row's applicability. The scanner emits leads for all stages, so do not roll up unrelated
+   checks. Check the code and operational evidence, not the framework's reputation; cite file
+   and line for code findings and describe the evidence needed for external or manual findings.
+5. **Handle manual rows.** Ask the user or report them as unverified. For paid services, prefer
+   a verified provider-enforced hard cap and scoped key. Where no provider cap exists, assess an
+   application limit's coverage and residual risk, including bypass through direct key use,
+   concurrency and billing lag; alerts alone are not a cap. Do not claim a hard bound without
+   evidence. For applicable risk profiles, verify evidence for safeguards and release/usage gates
+   needed for the proposed use; report missing, unresolved or unverified prerequisites and
+   prevent a readiness claim for the affected use. For AI, check whether evidence of the
+   planned, proportionate evaluation exists; do not conduct or claim an independent quality
+   evaluation. Flag when qualified legal or domain review is needed rather than claiming
+   compliance. The user checks provider settings; agents never access production credentials.
+6. **Report** using the format below.
 
 ## Report format
 
@@ -44,7 +72,7 @@ A one-time pre-launch check of an existing codebase. For per-unit checks during 
 | Failure & rollback | | |
 
 ## Blockers
-<🔴 items, each with file:line>
+<🔴 items, with file:line for code or evidence needed for manual/infrastructure findings>
 
 ## Findings
 **Fix directly (AI can do it):** ...
@@ -53,8 +81,16 @@ A one-time pre-launch check of an existing codebase. For per-unit checks during 
 ```
 
 Rules:
-- 🔴 = any `fail` or confirmed security gap. ⚠️ = `warn` or unverified `manual`. ✅ = all rows pass.
+- 🔴 = a confirmed applicable failure or security gap. ⚠️ = an applicable warning or unverified
+  manual check. ✅ = all applicable rows verified; explicitly list non-applicable rows and reasons.
+- Explain the hosting model's tradeoffs even when it meets the requirements; serverless or
+  cold starts alone are not failures.
 - Any 🔴 in Security & data is a launch blocker. Say so first.
 - Report only. Do not fix anything unless the user asks.
-- Evaluation of AI output quality is out of scope here.
-- AI runtime locks (least-privilege tools, argument validation, approval on irreversible actions, PII redaction, untrusted text) apply only when the app calls a model. Their dev-time counterpart, locks on the agent that builds the app, lives in `product-engineering`.
+- Independently evaluating AI output quality is out of scope; report whether required evaluation
+  evidence is present or unverified, without treating its existence as proof of quality.
+- AI runtime locks (least-privilege tools, argument validation, approval on irreversible actions,
+  personal-data minimization and redaction or an approved and verified identifying-data flow,
+  and untrusted text) apply only when the app calls a model. Existing stricter project locks
+  remain applicable. Their dev-time counterpart, locks on the agent that builds the app, lives
+  in `product-engineering`.

@@ -20,7 +20,6 @@ from pathlib import Path
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", ".expo", "coverage"}
 SKIP_FILES = re.compile(r"(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|uv\.lock|poetry\.lock|\.min\.js|\.map)$")
 CODE_EXTS = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".yml", ".yaml", ".toml", ".env", ".sql", ".sh", ".md", ".txt")
-TEMPLATE_ENV = re.compile(r"\.(example|sample|template|dist)$")
 
 SECRET_RES = [
     re.compile(r"AKIA[0-9A-Z]{16}"),
@@ -71,7 +70,7 @@ INFRA_HOSTS = {
     "Fly": (("fly.toml",), ("FLY_API_TOKEN",)),
     "Netlify": (("netlify.toml",), ("NETLIFY_AUTH_TOKEN",)),
     "Heroku": (("Procfile",), ("HEROKU_API_KEY",)),
-    "Cloudflare": (("wrangler.toml", "wrangler.json"), ("CLOUDFLARE_API_TOKEN",)),
+    "Cloudflare": (("wrangler.toml", "wrangler.json", "wrangler.jsonc"), ("CLOUDFLARE_API_TOKEN",)),
     "AWS": (("serverless.yml", "samconfig.toml", "cdk.json"), ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")),
     "Supabase": (("supabase/config.toml",), ("SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY")),
     "Terraform": ((), ()),  # any *.tf file
@@ -89,20 +88,32 @@ def git(root: Path, *args: str) -> tuple[int, str]:
         return 1, str(e)
 
 
+def protected_path(path: Path) -> bool:
+    return (
+        path.name.startswith(".env")
+        or path.suffix.lower() in {".pem", ".key"}
+        or "secrets" in path.parts
+        or (path.name == "guardrails.json" and path.parent.name == ".agent")
+    )
+
+
 def list_files(root: Path) -> list[Path]:
     out: list[Path] = []
     for dirpath, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and d != "secrets" and not Path(dirpath, d).is_symlink()]
         for f in files:
-            if not SKIP_FILES.search(f):
-                out.append(Path(dirpath, f))
+            path = Path(dirpath, f)
+            if not protected_path(path) and not path.is_symlink() and not SKIP_FILES.search(f):
+                out.append(path)
     return out
 
 
 def read(p: Path) -> str:
+    if protected_path(p) or p.is_symlink():
+        raise ValueError(f"Refusing to read protected or symlinked path: {p}")
     try:
         return p.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
+    except FileNotFoundError:
         return ""
 
 
@@ -114,7 +125,7 @@ def scan_secrets(root: Path, files: list[Path]) -> list[dict]:
     hits = []
     for p in files:
         name = p.name
-        if not (name.endswith(CODE_EXTS) or name.startswith(".env")) or TEMPLATE_ENV.search(name):
+        if not name.endswith(CODE_EXTS):
             continue
         for n, line in enumerate(read(p).splitlines(), 1):
             if len(line) > 400 or SECRET_IGNORE.search(line):
@@ -164,23 +175,23 @@ def main(argv: list[str]) -> int:
         checks.append(check("infra", "git_repo", "pass" if has_commits else "warn", "Git repo" + ("" if has_commits else " with no commits")))
         checks.append(check("infra", "git_remote", "pass" if remotes else "fail", f"Remotes: {remotes or 'none (no off-machine backup)'}"))
 
-    env_files = [rel(p) for p in files if re.match(r"\.env(\..+)?$", p.name) and not TEMPLATE_ENV.search(p.name)]
-    gitignore = read(root / ".gitignore")
-    ignores_env = bool(re.search(r"^\.env\b", gitignore, re.MULTILINE))
     tracked_env = []
-    if is_git and env_files:
-        _, tracked = git(root, "ls-files", "--", *env_files)
-        tracked_env = tracked.splitlines()
+    if is_git:
+        code, tracked = git(root, "ls-files", "--", ".env", ".env.*", "**/.env", "**/.env.*")
+        if code != 0:
+            raise RuntimeError(f"Unable to check tracked environment files: {tracked}")
+        tracked_env = [name for name in tracked.splitlines()
+                       if not re.search(r"\.(example|sample|template|dist)$", name)]
     if tracked_env:
         checks.append(check("infra", "env_committed", "fail", "Env files tracked by git", files=tracked_env))
-    elif env_files and not ignores_env:
-        checks.append(check("infra", "env_ignored", "fail", ".env present but not in .gitignore", files=env_files))
     else:
-        checks.append(check("infra", "env_committed", "pass", "No tracked .env files"))
+        checks.append(check("infra", "env_committed", "manual", "Confirm environment files are untracked and correctly ignored, including nested files."))
+    checks.append(check("security", "env_contents", "manual",
+                        "Environment files are excluded from scanning. Ask the user to check their contents and credential handling privately; never share values."))
 
     checks.append(check("infra", "ci", "pass" if (root / ".github" / "workflows").is_dir() else "warn", "CI workflows " + ("found" if (root / ".github" / "workflows").is_dir() else "not found")))
     for cid, q in (("staging", "Is there a staging environment before production?"),
-                   ("hosting_defaults", "Hosting tier: dedicated or cold-start?"),
+                   ("hosting_defaults", "Explain the chosen hosting model's cold-start, availability, recovery and cost tradeoffs against the agreed requirements."),
                    ("backups", "Are database backups stored outside the volume and account the app and agent can reach? Has a restore been done once?"),
                    ("agent_permissions", "What can the AI agent read, write and delete?")):
         checks.append(check("infra", cid, "manual", q))
@@ -188,7 +199,7 @@ def main(argv: list[str]) -> int:
     # Names and config files the app uses, for the per-service rows below
     names = set()
     for p in files:
-        if p.name.endswith(CODE_EXTS) or p.name.startswith(".env"):
+        if p.name.endswith(CODE_EXTS):
             names |= set(ENV_NAME_RE.findall(read(p)))
     dep_text = " ".join(read(root / d).lower() for d in DEP_FILES)
 
@@ -199,17 +210,17 @@ def main(argv: list[str]) -> int:
 
     # Pillar 3: security and data
     secrets = scan_secrets(root, files)
-    checks.append(check("security", "secrets_in_source", "fail" if secrets else "pass", f"{len(secrets)} file(s) with likely secrets" if secrets else "No likely secrets found", hits=secrets[:20]))
+    checks.append(check("security", "secrets_in_source", "warn" if secrets else "manual", f"{len(secrets)} file(s) with possible secrets; confirm privately without exposing values" if secrets else "No patterns matched; secret safety remains unverified", hits=secrets[:20]))
     flagged = scan_endpoints(root, files)
-    checks.append(check("security", "endpoints_without_auth", "warn" if flagged else "pass",
-                        "Heuristic: these files define routes and mention no auth. Review each." if flagged else "Every route file mentions auth", files=flagged[:30]))
+    checks.append(check("security", "endpoints_without_auth", "warn" if flagged else "manual",
+                        "Heuristic: these route files mention no auth; review each and verify all protected routes and intentional public paths." if flagged else "No route files flagged; verify all protected routes and intentional public paths.", files=flagged[:30]))
     uses_supabase = any("supabase" in read(p).lower() for p in files if p.name in DEP_FILES) or (root / "supabase").is_dir()
     if uses_supabase:
         n, gaps = rls_gaps(files)
         if n == 0:
             checks.append(check("security", "rls", "manual", "Supabase in use but no CREATE TABLE in SQL files. Check RLS in the dashboard."))
         else:
-            checks.append(check("security", "rls", "fail" if gaps else "pass", f"{len(gaps)} of {n} table(s) without RLS" if gaps else f"RLS enabled on all {n} tables", tables=gaps))
+            checks.append(check("security", "rls", "warn" if gaps else "manual", f"{len(gaps)} of {n} detected table(s) lack an RLS enable statement; verify access controls" if gaps else f"RLS enable statements found for {n} detected table(s); verify policies and access", tables=gaps))
     lock = [l for l in LOCKFILES if (root / l).exists()]
     has_deps = any((root / d).exists() for d in DEP_FILES)
     if has_deps:
@@ -232,8 +243,8 @@ def main(argv: list[str]) -> int:
         checks.append(check("security", "ci_secret_scan", "warn", "No CI, so nothing scans for secrets on every push"))
     else:
         scanning = bool(SECRET_SCANNERS.search(ci_text))
-        checks.append(check("security", "ci_secret_scan", "pass" if scanning else "warn",
-                            "CI runs a secret scanner" if scanning else "CI runs no secret scanner (gitleaks, trufflehog or check_loop.py guardrails)"))
+        checks.append(check("security", "ci_secret_scan", "manual" if scanning else "warn",
+                            "Possible secret scanner reference found; verify it actually runs and covers changes" if scanning else "No secret scanner reference found; verify CI configuration"))
 
     # Pillar 3 (continued): runtime locks, only when the app calls a model
     deps = dep_text
@@ -244,27 +255,27 @@ def main(argv: list[str]) -> int:
                 text = read(p)
                 if TOOL_USE_RE.search(text) and POWER_RE.search(text):
                     powerful.append(rel(p))
-        checks.append(check("security", "ai_tool_review", "warn" if powerful else "pass",
+        checks.append(check("security", "ai_tool_review", "warn" if powerful else "manual",
                             "Heuristic: these files define model tools and mention a delete, send, exec, charge or publish capability. Confirm each tool is needed and least-privilege." if powerful
                             else "No model tool definition found with a powerful capability", files=powerful[:30]))
         has_validation = [v for v in VALIDATION_LIBS if v in deps]
-        checks.append(check("security", "ai_validation", "pass" if has_validation else "warn",
+        checks.append(check("security", "ai_validation", "manual" if has_validation else "warn",
                             f"Schema library present: {', '.join(has_validation)}. Confirm tool arguments go through it." if has_validation
                             else "No schema validation library; tool arguments may be passed through unchecked"))
         for cid, q in (("ai_approval", "Do irreversible actions (send, delete, pay, publish) need approval bound to the exact action?"),
-                       ("ai_pii_redaction", "Is PII redacted before the model call?"),
+                       ("ai_pii_redaction", "Is personal data minimized and are identifiers redacted unless necessary? Before necessary identifying data is sent, is the data flow approved and are applicable privacy, security, provider terms and required reviews verified?"),
                        ("ai_untrusted_text", "Is retrieved or uploaded text labeled untrusted? Does any feature combine private data, untrusted content and a way to send data out?")):
             checks.append(check("security", cid, "manual", q))
 
     # Pillars 4 and 3: observability, cost, rate limits
     tracker = [t for t in ERROR_TRACKERS if t in dep_text]
-    checks.append(check("observability", "error_tracker", "pass" if tracker else "fail", f"Found: {', '.join(tracker)}" if tracker else "No error tracker dependency"))
+    checks.append(check("observability", "error_tracker", "manual" if tracker else "warn", f"Possible error tracker: {', '.join(tracker)}; verify detection and investigation" if tracker else "No recognized error tracker; verify another effective error detection and investigation mechanism"))
     limiter = [r for r in RATE_LIMITERS if r in dep_text]
-    checks.append(check("infra", "rate_limit", "pass" if limiter else "warn", f"Found: {', '.join(limiter)}" if limiter else "No rate-limit dependency (may be handled by the host)"))
+    checks.append(check("infra", "rate_limit", "manual" if limiter else "warn", f"Possible rate limiter: {', '.join(limiter)}; verify coverage and enforcement" if limiter else "No recognized rate-limit dependency; verify application and host controls"))
     paid = [s for s, (pkgs, envs) in PAID_SERVICES.items() if any(p in dep_text for p in pkgs) or names & set(envs)]
     for s in paid:
         checks.append(check("observability", f"paid_key:{s}", "manual",
-                            f"{s} key: hard spend cap set (or, if the provider can't cap this key, a limit in your own code)? Spend alerts on? Key restricted to the APIs it uses?"))
+                            f"{s} key: verify a provider-enforced hard cap, spend alerts and restricted scope. If unavailable, assess limits in your own code and residual risk from direct key use, concurrency and delayed billing."))
     checks.append(check("observability", "monthly_cost", "manual", "Add up hosting, database and API spend." +
                         ("" if paid else " Any paid API: spend cap, spend alerts, key restricted to the APIs it uses?")))
 

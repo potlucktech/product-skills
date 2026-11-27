@@ -11,7 +11,10 @@ flowchart TD
     start([Design request]) --> spec
 
     subgraph S0["Stage 0 · Set up"]
-        spec[Read the product spec,<br/>if there is one] --> taste[Ask your taste:<br/>references, likes, dislikes]
+        spec{Product spec exists?} -- yes --> taste[Ask your taste:<br/>references, likes, dislikes]
+        spec -- no --> scope{{"You choose: scope first<br/>or design directly"}}
+        scope -- scope first --> scoping[You run /product-scoping;<br/>design pauses]
+        scope -- design directly --> taste
         taste --> content[Gather real content:<br/>names, copy, photos]
         content --> brandq{A brand already exists?<br/>accepted homepage, live site, tokens}
         brandq -- yes --> brand[Brand kit: palette with roles,<br/>contrast-checked, fonts, motifs]
@@ -63,10 +66,10 @@ flowchart TD
     end
 
     sync --> done([Final screenshots and mock files])
-    done --> next[Next: product-engineering]
+    done --> next[When ready, you run<br/>/product-engineering]
 
     classDef you fill:#fff4d6,stroke:#c99a2e,color:#3d2e00;
-    class you0,fork,youB1,youB2,you1,you2,you3a,you3b,you3c you;
+    class scope,you0,fork,youB1,youB2,you1,you2,you3a,you3b,you3c you;
 ```
 
 Yellow boxes are where the skill stops and waits for you. Every message starts with the stage name, and every stop ends with a status block. Its **Decide** list names each open question with a default, and **Reply with** says exactly what to type ("1" accepts the defaults). The skill shows the output and then waits. There are no pop-up questions; you answer in plain words or with a number.
