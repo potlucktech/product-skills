@@ -1,6 +1,6 @@
 # `product-engineering` Eval Suite
 
-Use these scenarios to verify that `product-engineering` advances naturally between checkpoints, asks about architectural tradeoffs before generating files, sequences units skeleton → P0 → P1 → P2 → reporting, maps `specs/product/` user flows ($F_1..F_m$) into unit test matrices ($T_1..T_n$ & $M_1..M_k$) and instrumentation, simplifies code automatically, and passes `scripts/check_loop.py`.
+Use these scenarios to verify that `product-engineering` advances naturally between checkpoints, asks about architectural tradeoffs before generating files, sequences units skeleton → P0 → P1 → P2 (optional reporting last), maps `specs/product/` user flows ($F_1..F_m$) into unit test matrices ($T_1..T_n$ & $M_1..M_k$) and instrumentation, simplifies code automatically, and passes `scripts/check_loop.py`.
 
 ---
 
@@ -16,9 +16,9 @@ Use these scenarios to verify that `product-engineering` advances naturally betw
 2. **Checks `CONFIG.md` against repo stack:** Verifies `TEST_COMMAND`, `LINT_COMMAND`, and `FORMAT_COMMAND` match the project's actual toolchain.
 3. **Respects the architecture baseline:** Reads the approved plan, identifies relevant defaults, ownership boundaries, later components and gates, and asks about genuinely new material tradeoffs rather than re-approving settled choices.
 4. **Generates Complete Upfront Unit Contracts:** Once aligned, writes `history/decisions/001-*.md` (if needed), `active/01-reading-list/plan.md` (from `PLAN_TEMPLATE.md`), and all unit contracts (`active/01-reading-list/units/01..N-*.md`) with:
-   - **Sequence:** Unit 01 = walking skeleton (`infra`, serves `all`, includes the load-bearing data scoping key); next units serve F1 [P0]; then P1/P2 flows; last unit = `reporting` (dashboard/queries over instrumented events).
+   - **Sequence:** Unit 01 = walking skeleton (`infra`, serves `all`, includes the load-bearing data scoping key); next units serve F1 [P0]; then P1/P2 flows. A `reporting` unit appears only if the architecture plan names reports the analytics tool doesn't provide, and then last.
    - Every flow mapped into explicit **Automated Tests ($T_1..T_n$)**, **Manual E2E Scenarios ($M_1..M_k$)**, and a **Testable after this unit** outcome.
-   - Every journey unit lists **Instrumentation** events (view + primary action per capability; hypothesis-metric events in the P0 unit) and has an `[Instrumentation]` T scenario asserting them.
+   - Only units that produce a metric named in the architecture plan list **Instrumentation** events (each naming its metric) and an `[Instrumentation]` T scenario; other units say `None`.
    - Every journey unit has an end-to-end `(e2e)` T scenario automating its happy path; every `[Live]` M scenario states its cost per run.
    - The plan links the architecture baseline; each unit links it and carries only its relevant boundaries and gates. A component needed by a P2 flow arrives with that flow, not automatically in the skeleton.
    - Zero placeholder units; `check_loop.py plan` returns `"ok": true`.
@@ -84,10 +84,9 @@ python .claude/skills/product-engineering/scripts/check_loop.py 01
 **Expected `"errors"` (and exit code `1`) for each defect:**
 - A P1 journey row placed before a P0 row → `Units must run P0 → P1 → P2`.
 - A row with no `units/NN-*.md` file → `has no pre-documented contract`.
-- No `reporting` row, or one that isn't last → `No reporting unit` / `Reporting unit(s) must come last`.
+- A `reporting` row that isn't last → `Reporting unit(s) must come last`. No reporting row is fine.
 - No journey unit serving `F3` → `F3 [P2] is not served by any journey unit`.
-- A journey contract without Instrumentation events → `Journey unit lists no Instrumentation events`.
-- A journey contract without an `[Instrumentation]` T scenario → `Journey unit needs an `[Instrumentation]` T scenario asserting its events`.
+- A contract that lists Instrumentation events without an `[Instrumentation]` T scenario → `Unit lists Instrumentation events but has no `[Instrumentation]` T scenario asserting them`. A journey contract with `None` under Instrumentation passes.
 - A journey contract with no T line tagged `(e2e)` (alone or combined, e.g. `(integration + e2e)`) → `Journey unit needs an end-to-end T scenario `(e2e)` automating its happy path`.
 - A `[Live]` M scenario without a filled-in `**Cost**:` (missing or still a `[placeholder]`) → `` `[Live]` M scenario must state its `**Cost**:` per run ``.
 - A spec flow header without `[P#]` → `Spec flow F2 has no [P0|P1|P2] tier tag`.
@@ -112,15 +111,23 @@ as an approved supporting store for a concrete P2 flow. Redis is not needed by P
 - The verifier checks touched boundaries; the scribe records shipped status without rewriting
   approved decisions. Routine units do not trigger another architecture review.
 
-## Test Case 5b: Explicit Analytics Deferral
+## Test Case 5b: Analytics Set Up Later
 
-**Setup:** The user approves deferred vendor setup with offline tests and a real-user release gate.
+**Setup:** The approved architecture plan's Analytics section names one hypothesis metric (with
+its reader), PostHog as the tool, and PII rules (hash user IDs, never send emails or free text).
+No replay or acquisition tracking is planned. In Phase 0 the user chooses to set up analytics later.
 
 **Expected:**
-- Setup records the deferral; the milestone and affected contracts carry it forward.
-- Offline instrumentation is tested; skipped vendor checks are reported as unverified, not passed.
-- The P0 measurement checkpoint remains blocked until events arrive; P1 does not start before it.
-- Replay is not enabled unless separately approved and its privacy and usage gates hold.
+- Phase 0 records `ANALYTICS_SETUP: later` and does not block on analytics accounts.
+- The skeleton and P0 journeys list `None` under Instrumentation. The last P0 unit is an `infra`
+  **Analytics instrumentation** unit: it installs PostHog, a thin `track()` wrapper applying the PII
+  rules through the tool's filtering hook, the test kit, a synthetic-PII test, and the
+  hypothesis-metric events on the P0 journeys. It asks for the accounts when it starts.
+- No events exist without a planned metric; no reporting unit and no replay are planned.
+- Before accounts exist, offline instrumentation passes and live arrival is reported unverified.
+- The P0 checkpoint stays blocked, and P1 does not start, until the hypothesis-metric events arrive.
+- In a separate run where the user sets up analytics now, the skeleton installs the tool and the
+  P0 journeys emit the hypothesis-metric events as they are built; no instrumentation unit is added.
 
 ## Test Case 5c: User-initiated Skill Handoffs
 

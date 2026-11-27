@@ -3,7 +3,7 @@
 Builds a product spec into working, tested code, one unit at a time. Every unit's contract is planned up front:
 - automated tests;
 - manual walkthroughs;
-- analytics events.
+- analytics events for the metrics the architecture plan names.
 
 Each unit is then built tests-first, checked by a separate verifier that didn't write the code, and synced back into the living specs. Guardrails act as locks, scaled to each unit's risk, not as instructions the agent could ignore.
 
@@ -18,17 +18,17 @@ Instructions for Claude live in [SKILL.md](SKILL.md). This page is for people.
 ```mermaid
 flowchart TD
     start([Final product spec]) --> architecture
-    architecture[Architecture baseline or<br/>focused impact review when needed] --> setup
+    architecture[Architecture baseline or impact review:<br/>metrics, analytics tool and PII rules] --> setup
 
     subgraph P0["Phase 0 · Setup, once per repo"]
-        setup[CONFIG.md: commands, paths, models] --> guard{{"You run the guardrail generator<br/>and configure approved services"}}
+        setup[CONFIG.md: commands, paths, models] --> guard{{"You run the guardrail generator,<br/>configure approved services,<br/>and set up analytics now or later"}}
         guard --> check[Guardrail check returns ok]
     end
 
     check --> frame
 
     subgraph P1["Phase 1 · Milestone plan & unit contracts"]
-        frame[Read architecture: use now,<br/>defer, boundaries and gates] --> seq[Sequence units:<br/>skeleton → P0 → P1 → P2 → reporting]
+        frame[Read architecture: use now,<br/>defer, boundaries and gates] --> seq[Sequence units:<br/>skeleton → P0 → P1 → P2;<br/>analytics later = instrumentation unit as last P0]
         seq --> contracts[Write every unit contract up front:<br/>tests, manual steps, events, risk]
         contracts --> scen[Find edge and failure scenarios]
         scen -- unclear behaviour --> ask{{"You clarify"}}
@@ -73,7 +73,7 @@ Yellow boxes are where the skill stops and waits for you.
 
 | Stop | What you do |
 |---|---|
-| Phase 0 setup | Run the guardrail generator yourself and configure approved service credentials, or explicitly defer setup with its readiness gates recorded. The agent never handles credentials. |
+| Phase 0 setup | Run the guardrail generator yourself and configure approved service credentials. Choose whether to set up analytics accounts now or later; later is fine. The agent never handles credentials. |
 | Unclear behaviour | Answer a concrete question with options. The agent never guesses product behaviour. |
 | Plan checkpoint | Approve the milestone plan, unit contracts and ADRs before any code. |
 | Architecture decision | Approve a new or changed material choice; an already-approved choice need not be selected again. Required decisions are recorded as ADRs. |
@@ -88,7 +88,7 @@ Yellow boxes are where the skill stops and waits for you.
 - Tests written before the code at four levels: unit, integration, end-to-end and live.
 - `history/decisions/`: an ADR for each architecture and guardrail decision.
 - Living specs in `specs/engineering/`, kept in sync with shipped code.
-- Analytics events for every journey, plus a reporting unit at the end.
+- Events only for the metrics the architecture plan names, through one `track()` wrapper that applies its PII rules. If you set analytics up later, one instrumentation unit adds it before the P0 checkpoint. Replay and a reporting unit only when the plan calls for them.
 
 ## Works with
 

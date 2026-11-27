@@ -51,6 +51,20 @@ ownership and trust boundaries; avoid detail that does not affect a decision.
 | Observability & cost | | | |
 | Failure & rollback | | | |
 
+### Analytics
+
+*Always fill this in, even when setup waits. No event without a reader.*
+
+| Metric (hypothesis metric first) | Reader: report, dashboard or decision | Events needed |
+|---|---|---|
+| | | |
+
+- **Tool:** [Recommended tool, or "choose before real users"]
+- **PII rules for event data:** [Never sent; hashed or truncated; applied through the tool's settings or filtering hook]
+- **Must be live by:** [Default: hypothesis-metric events arriving before real users]
+- **Session replay:** [Not planned | Planned for <question it answers>, with masking, access, retention and consent gates]
+- **Acquisition tracking:** [Not yet | Planned for <launch or traffic milestone>]
+
 ## Risk Profiles and Safeguards
 
 *Assess actual use cases and data flows, not labels alone. Examples include generative AI,

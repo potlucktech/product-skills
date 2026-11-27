@@ -54,6 +54,16 @@ class PlanCleanup(Case):
     def test_unfinished_plan_stays(self):
         self.assertFalse(any("move this milestone" in e for e in self.plan_errors("todo")))
 
+    def test_reporting_unit_is_optional(self):
+        self.assertFalse(any("reporting" in e.lower() for e in self.plan_errors("todo")))
+
+    def test_reporting_unit_must_be_last(self):
+        d = self.root / "active" / "01-x"
+        d.mkdir(parents=True)
+        rows = "| 01 | Skeleton | infra | all | P0 | todo |\n| 02 | Reports | reporting | all | — | todo |\n| 03 | Journey | journey | F1 | P0 | todo |\n"
+        (d / "plan.md").write_text("| # | Unit | Type | Serves | Tier | Status |\n| :-- | :-- | :-- | :-- | :-- | :-- |\n" + rows)
+        self.assertTrue(any("must come last" in e for e in check_loop.check_plan(d / "plan.md")["errors"]))
+
 
 if __name__ == "__main__":
     unittest.main()

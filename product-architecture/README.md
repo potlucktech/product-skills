@@ -35,6 +35,9 @@ review, not a full rewrite.
 - a system-context diagram and plain-language explanation;
 - verified findings about the existing stack (or an explicit note that none was found);
 - a recommended technology stack with alternatives and cost assumptions for you to approve;
+- an analytics plan: the metrics that matter and who reads each, the recommended tool, PII rules for
+  event data, and when it must be live (by default, before real users). Account setup can wait;
+  replay and acquisition tracking are planned only where they answer a real question;
 - which components are needed now, approved for a concrete later need, or only options;
 - risk profiles and safeguards, including what is needed before a particular use and what can
   safely wait with a clear boundary and trigger;

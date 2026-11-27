@@ -41,6 +41,7 @@ a reason, and leave unverified controls manual.
 | | Assess local user data against approved storage boundaries, sensitivity, device access and retention; explicitly approved local drafts are not inherently a failure | judgment |
 | | *If customer data reaches third-party AI:* minimize data, remove direct identifiers and sensitive context where possible, assess re-identification, verify provider training and retention terms, and verify required disclosure, consent and approval before use | [ai_data_handling] |
 | | Assess applicable risk profiles and verify required safeguards and use-specific gates against evidence; flag unresolved legal, provider or domain questions for qualified review, not assumed compliance | judgment |
+| | *If analytics is used:* verify event properties (and acquisition tracking, if used) follow the architecture plan's PII rules and any data-minimization, access, retention, disclosure and consent safeguards; test with synthetic PII; keep real-user collection gated until required controls are verified | judgment |
 | | *If session replay is enabled:* verify sensitive-content masking/exclusion and settings, access, retention, disclosure and consent as applicable; test with synthetic inputs and keep replay disabled for real users until its approved privacy gate passes | judgment |
 | | *If the app calls a model:* tools are least-privilege (nothing the feature doesn't need, no delete or send it doesn't use) | [ai_tool_review] |
 | | *If the app calls a model:* every tool argument is schema-validated against an allowlist | [ai_validation] |
@@ -48,7 +49,7 @@ a reason, and leave unverified controls manual.
 | | *If the app calls a model:* minimize personal data and redact identifiers unless needed for the approved use; before sending necessary identifying data, verify the user-approved data flow, applicable privacy and security safeguards, provider terms, and required legal or domain review | [ai_pii_redaction] |
 | | *If the app calls a model:* retrieved and uploaded text is labeled untrusted, and no feature combines private data + untrusted content + a way to send data out | judgment |
 | Observability & cost | Verify that errors in critical flows can be detected and investigated; flag absence of a recognized tracker for manual review, not automatic failure | [error_tracker] |
-| | Analytics shows where users drop off | judgment |
+| | The spec's hypothesis metric can be measured before real users: its events arrive in production analytics. Blocker if the spec validates through behavior data and nothing measures it; a finding if there is no spec or validation is qualitative | judgment |
 | | Monthly cost known | [monthly_cost] |
 | | For each paid API: verify key scope, spend alerts and a provider-enforced hard cap where available. If unavailable, assess application-side limits and residual exposure (direct key use, concurrent requests, delayed billing); alerts alone are not caps. Escalate an unbounded risk before launch | [paid_key:*] |
 | Failure & rollback | Manual rollback done once as a dry run | [rollback_dry_run] |

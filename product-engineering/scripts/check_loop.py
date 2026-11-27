@@ -12,7 +12,7 @@ Features:
 - Validates contract structure (Type/Serves/Tier, Risk + Guardrails ADR, testable outcome, M scenarios, instrumentation, guardrail T scenarios for medium/high risk)
 - Executes configured test suite and linters (supporting CONFIG.md overrides)
 - `plan` mode validates active/*/plan.md: every unit pre-documented, tiers ordered
-  skeleton → P0 → P1 → P2 → reporting, every product-spec flow tier-tagged, ordered
+  skeleton → P0 → P1 → P2 (an optional reporting unit last), every product-spec flow tier-tagged, ordered
   (F1 is P0, tiers non-decreasing), and served by a journey unit
 - Reports `diff`: changed files, plus test files that lost assertions or gained skips/sleeps/timeouts, so the verifier can tie each to a contract line
 - Reports `hygiene` on changed source files: likely hardcoded secrets (fail the gate) and route files that mention no auth (heuristic, for the verifier to review)
@@ -219,13 +219,11 @@ def check_contract(text: str) -> dict:
         errors.append("Missing `**Testable after this unit**:` outcome")
     if not re.search(r"\*\*M\d+\b", text):
         errors.append("No manual E2E scenarios (M1..Mk)")
+    section = re.search(r"^###?\s+(?:C\.\s+)?Instrumentation\b(.*?)(?=^##|\Z)", text, re.MULTILINE | re.DOTALL)
+    events = re.findall(r"^\s*-\s+`[^`\[\]]+`", section.group(1), re.MULTILINE) if section else []
+    if events and not re.search(r"\*\*T\d+(?:\.\d+)?\s*\[Instrumentation", text):
+        errors.append("Unit lists Instrumentation events but has no `[Instrumentation]` T scenario asserting them")
     if unit_type == "journey":
-        section = re.search(r"^###?\s+(?:C\.\s+)?Instrumentation\b(.*?)(?=^##|\Z)", text, re.MULTILINE | re.DOTALL)
-        events = re.findall(r"^\s*-\s+`[^`\[\]]+`", section.group(1), re.MULTILINE) if section else []
-        if not events:
-            errors.append("Journey unit lists no Instrumentation events")
-        if not re.search(r"\*\*T\d+(?:\.\d+)?\s*\[Instrumentation", text):
-            errors.append("Journey unit needs an `[Instrumentation]` T scenario asserting its events")
         if not re.search(r"^\s*-\s+\*\*T\d+(?:\.\d+)?\s*\[[^\]]*\]\s*\([^)]*\be2e\b[^)]*\)", text, re.MULTILINE):
             errors.append("Journey unit needs an end-to-end T scenario `(e2e)` automating its happy path")
     for line in re.findall(r"^\s*-\s+\*\*M\d+\s*\[Live\b.*$", text, re.MULTILINE):
@@ -296,9 +294,7 @@ def check_plan(plan_path: Path) -> dict:
             errors.append(f"Unit {u['unit']}: {u['risk']}-risk unit needs its own guardrails ADR, not the baseline {baseline}")
 
     reporting = [i for i, u in enumerate(units) if u["type"] == "reporting"]
-    if not reporting:
-        errors.append("No reporting unit (dashboard/reports over instrumented events) at the end")
-    elif reporting != list(range(len(units) - len(reporting), len(units))):
+    if reporting and reporting != list(range(len(units) - len(reporting), len(units))):
         errors.append("Reporting unit(s) must come last")
 
     tiers = [u["tier"] for u in units if u["type"] != "reporting"]

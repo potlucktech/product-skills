@@ -35,7 +35,7 @@ Phases 3–6 repeat for each unit, in plan order.
 
 ## Core Tenets
 
-1. **Plan everything, build in priority order.** Pre-document every unit contract in the milestone before writing Unit 01 code (Phase 1), so early decisions don't box in later units. Build order: walking skeleton → P0 → P1 → P2 → analytics reporting. Each unit leaves the app runnable and testable.
+1. **Plan everything, build in priority order.** Pre-document every unit contract in the milestone before writing Unit 01 code (Phase 1), so early decisions don't box in later units. Build order: walking skeleton → P0 → P1 → P2, with an optional reporting unit last. Each unit leaves the app runnable and testable.
 
 2. **Four test tiers, automated first.** Full rules: [Test tiers](references/test-mapping-guide.md).
    - **Unit, integration, end-to-end** (T tokens): run on every `TEST_COMMAND`, nothing leaves the machine. End-to-end means the real app in a real browser (Playwright or equivalent) with outside services stubbed; behavior that only exists in a browser (focus, keyboard, JS state, layout, accessible names) is covered here, never by source-text assertions. Every journey unit automates its happy path end to end.
@@ -65,7 +65,7 @@ Phases 3–6 repeat for each unit, in plan order.
    - ADRs are written when the decision is made, never edited once accepted; a new ADR supersedes an old one. Finished milestone folders are frozen.
    - **Git**: commits follow `AUTO_COMMIT` in `CONFIG.md`; when `false` (the default), leave diffs uncommitted for review. Only what git can't undo is denied: force-push, `reset --hard`, `clean -f`, and secrets or user data entering a commit.
 
-6. **Instrumented by default.** Every journey unit ships the analytics events for what it builds; the last unit turns them into reports. Follow the approved architecture for the provider and replay; separate dev and production data where applicable. A documented, user-approved service deferral permits offline work, not a claim of live readiness. Full rules: [Analytics](references/analytics.md).
+6. **Measure what the plan names.** Analytics follows the approved architecture plan: its metrics, the tool, PII rules and when it must be live. No event without a reader: only units that produce a planned metric emit events, and a dropped metric's events and tests are removed with it. Account setup can wait (Phase 0 asks); the P0 checkpoint is the gate, with the hypothesis-metric events arriving before real users. Replay only when the plan includes it. Full rules: [Analytics](references/analytics.md).
 
 7. **Guardrails are locks, not prompts.** Lock only what git can't undo; everything else gets a check. Every unit has a **Risk** (low / medium / high, from blast radius and reversibility; unsure means higher) and a **Guardrails ADR**: low cites the baseline ADR; medium, high, and any design-system change write their own. Higher risk means more locks and a stricter verifier. Runtime locks for AI features in the app are built by the unit that adds them and audited at launch by `product-launch-audit`. Full rules: [Guardrails](references/guardrails.md).
 
@@ -92,18 +92,19 @@ Do not repeat completed setup. `check_loop.py guardrails` verifies guardrails, n
 credentials, live verification, or launch readiness; assess these separately. A user-approved
 service deferral must be recorded in `CONFIG.md` or another project setup record with offline
 coverage, blocked live checks, and its release gate, then carried into the milestone and affected
-contracts during planning. Never defer the dev-time locks or bypass a safety gate.
+contracts during planning. Analytics is simpler: `ANALYTICS_SETUP: later` is enough, and the P0
+checkpoint is its gate. Never defer the dev-time locks or bypass a safety gate.
 Before selecting or configuring services, read the approved
 `specs/product/architecture-plan.md`; if there is no approved baseline, stop and ask the user to
 run `/product-architecture` first (for an existing product, establish the shipped-system baseline).
 Do not invoke it automatically or select services based on setup defaults. Resume only after the
 approved baseline is available.
 
-1. **Config**: copy `CONFIG.example.md` to the repo root as `CONFIG.md` (not into the skill folder, which may be a symlink shared across repos). Set the commands, paths, breakpoints, and analytics fields for this stack.
+1. **Config**: copy `CONFIG.example.md` to the repo root as `CONFIG.md` (not into the skill folder, which may be a symlink shared across repos). Set the commands, paths, breakpoints, and analytics fields for this stack (blank while analytics setup waits).
 2. **Guardrails** (a human runs it; the generated files are protected from the agent): in a git repo (`git init` first, plus a GitHub remote for CI), `scripts/gen_guardrails.py --init --git-hook --ci`, then commit and push `.github/workflows/guardrails.yml` so GitHub Actions runs the same check on every push. Set `adr_required_paths` to where this repo's design system lives. The agent drafts the **baseline guardrails ADR** (`templates/GUARDRAILS_ADR_TEMPLATE.md`). Details: [Guardrails](references/guardrails.md).
 3. **Human-only steps**: stop and ask, with exact instructions. Never work around a missing one.
    - **Dev credentials only on this machine and in this repo.** Tell the user plainly: assume the agent can read any file or variable here, so never put a production key, host token or cloud credential where it runs. Production credentials live in the host's dashboard. A dev database login without `DELETE`/`DROP`.
-   - For approved analytics requiring accounts: dev and prod projects and keys, unless the user has explicitly approved a recorded deferral ([Analytics](references/analytics.md#phase-0-accounts-and-keys-human-only)).
+   - **Analytics**: ask whether to set up the planned tool's accounts now or later, and record `ANALYTICS_SETUP`. Later is a normal choice, not a blocker. If now: dev and prod projects and keys, plus dev read-back access ([Analytics](references/analytics.md#phase-0-set-up-now-or-later-human-only)).
    - For each outside service the app uses: the dev/sandbox credentials needed for its live check, unless explicitly deferred by the user. For free services, also request a **read-only, narrowly scoped dev credential** so tests can read back what arrived. Their hosts go in `LIVE_ALLOWED_HOSTS`. Paid services get a spend limit on their dev key and never go on that list ([Test tiers](references/test-mapping-guide.md#when-live-tests-run)).
 4. **Check**: `check_loop.py guardrails` returns `"ok": true`. Phase 1 doesn't start until it does.
 
@@ -116,10 +117,10 @@ approved baseline is available.
    - Read `specs/product/`: prioritized scope and tier-tagged flows (F1..Fm `[P0|P1|P2]`). If it doesn't exist, define them with the user first: outcomes, user stories, out-of-scope boundaries, and a tier per flow (P0 = the flows that test the riskiest assumption).
    - Frame tradeoffs as user gains vs. losses and concrete engineering cost. If non-obvious architectural forks exist, **ask the user first** with concrete options.
 2. **Sequence the units** to cover **every** P0–P2 flow, in this order:
-   1. **Walking skeleton** (`infra`): app shell, data layer, one end-to-end round trip, tests and lint running. Only what every journey needs. Verify the existing git repo and remote, secrets handling, rate limits on public and login endpoints, approved observability and analytics test kit ([Analytics](references/analytics.md#skeleton-unit)). Implement auth according to the approved access and ownership boundaries: account-owned data requires verified identity; explicitly approved anonymous paths need their own appropriate protections. Add a **dev-only sign-in bypass** when needed for walkthroughs ([Guardrails](references/guardrails.md#dev-only-sign-in-bypass)); cite the baseline guardrails ADR separately from any unit-specific ADR. An error tracker or session replay is not automatic: follow the approved architecture, and require review before adding a new provider or processor.
+   1. **Walking skeleton** (`infra`): app shell, data layer, one end-to-end round trip, tests and lint running. Only what every journey needs. Verify the existing git repo and remote, secrets handling, rate limits on public and login endpoints. If analytics is set up now, install the tool, the `track()` wrapper with the PII rules, and the test kit ([Analytics](references/analytics.md#phase-1-where-analytics-goes-in-the-plan)). Implement auth according to the approved access and ownership boundaries: account-owned data requires verified identity; explicitly approved anonymous paths need their own appropriate protections. Add a **dev-only sign-in bypass** when needed for walkthroughs ([Guardrails](references/guardrails.md#dev-only-sign-in-bypass)); cite the baseline guardrails ADR separately from any unit-specific ADR. An error tracker is not automatic; follow the approved architecture and require review before adding a new provider or processor.
    2. **Load-bearing decisions** also go in the skeleton, even when the feature using them is P2: choices expensive to retrofit (data scoping key such as `owner_id`/`tenant_id`, ID scheme, sync model, auth seam as an interface). One ADR each.
-   3. **P0 journeys**, then **P1**, then **P2**. Feature-specific infrastructure (external API seam, eval harness, invite tables, scheduler) arrives just in time, as an `infra` unit right before the first journey that needs it. Every unit that deploys to production or changes production data follows [Production data](references/guardrails.md#production-data).
-   4. **Reporting** (last unit): dashboard, reports, or saved queries over the events from earlier units.
+   3. **P0 journeys**, then **P1**, then **P2**. Feature-specific infrastructure (external API seam, eval harness, invite tables, scheduler) arrives just in time, as an `infra` unit right before the first journey that needs it. If analytics setup is `later`, the **Analytics instrumentation** unit is the last P0 unit ([Analytics](references/analytics.md#phase-1-where-analytics-goes-in-the-plan)). Every unit that deploys to production or changes production data follows [Production data](references/guardrails.md#production-data).
+   4. **Reporting** (optional, last): only when the plan names reports or dashboards the analytics tool doesn't provide.
    - Every unit leaves the app runnable and states what a human can try once it ships. Infra units prove themselves through the skeleton's round trip or a runnable harness, never "nothing visible yet."
    - Before sequencing: read the approved `specs/product/architecture-plan.md` and current `specs/engineering/`. For a new or changed decision affecting product stage or scale, data ownership, sensitivity or access, integrations, model providers, deployment, recovery, material cost or a foundational boundary, stop and ask the user to run `/product-architecture` for a focused review before continuing. In the milestone plan link the baseline, map relevant choices to use in the initial delivery / later unit or later milestone / not applicable, state interim safeguards and release/usage gates, and explain why it remains sufficient. Map applicable risk-profile safeguards and proportionate AI evaluations to units and tests before the relevant use; record deferred safeguards, interim boundaries, owner and trigger. Do not enable a gated use until its prerequisites are verified. A component serving a later need is not required in earlier units; if its flow is in this milestone, still plan its unit in sequence. Carry only unit-relevant boundaries and gates into each contract and link the baseline.
 3. **Write every contract** with `templates/UNIT_TEMPLATE.md` at `active/NN-<milestone>/units/NN-<slug>.md`. No placeholders. Fill `Type`, `Serves` (flows), `Tier`, `Risk`, `Guardrails ADR`, and **Living Specs Affected** (which `specs/product/` and `specs/engineering/` files it will create or update). Write `active/NN-<milestone>/plan.md` with `templates/PLAN_TEMPLATE.md`.
@@ -130,7 +131,7 @@ approved baseline is available.
    - **Clarification gate**: if expected behavior is ambiguous or has several valid UX readings, **stop before writing contracts** and ask the user (protocol: `references/scenarios.md` §2). Never guess product behavior.
    - **Part A, T scenarios**: deterministic logic, dirty payloads, schema repair, boundary inputs, security invariants. Every journey unit has an end-to-end happy-path T (`(e2e)`). Every unit that calls a free outside service has a `[Live]` T (`(live)`). Medium and high risk add a `[Guardrail]` scenario per lock (the blocked action stays blocked); high risk adds an `[Abuse]` scenario (injection, wrong-tenant access, replay).
    - **Part B, M scenarios**: key flows, mobile/responsive states, error recovery and human override. Every step must be doable by a person once this unit ships; a step that needs a later unit, an account or key the human doesn't have yet, or a particular time of day moves to the unit that makes it doable (or uses a dev override). UI walkthroughs name their expected look: the mock frames for the screens they cover plus a short "what to look for" list. Paid or non-automatable live checks are `[Live]` walkthroughs that state their cost per run and when they run.
-   - **Part C, Instrumentation**: events plus an `[Instrumentation]` T scenario for every journey unit ([Analytics](references/analytics.md#unit-contracts-phase-1-part-c)).
+   - **Part C, Instrumentation**: the planned-metric events this unit produces, each with its metric, plus an `[Instrumentation]` T scenario; `None` for units that produce none ([Analytics](references/analytics.md#unit-contracts-part-c)).
    - Format for all three: `UNIT_TEMPLATE.md`. UI units: follow `VIEWPORT_BREAKPOINTS` and `PARITY_REFERENCE_URL` in `CONFIG.md`.
 5. **Check seams and dependencies**: does each unit get the schema or seam it relies on from an earlier one? Resolve schema, API, or contract conflicts before any code. Manually check the architecture baseline link, approval, milestone mapping and each contract's relevant boundaries and gates; the plan validator does not verify them. Then run the validator and fix every error it reports:
    ```bash
@@ -170,7 +171,7 @@ it. Routine work within the contract needs no separate architecture review.
 
 **Phase 4, build**
 1. Business logic, validations, and data models in pure core modules first. Keep deterministic rules out of LLM prompts and UI glue.
-2. Thin adapters second: routes, controllers, templates, CLI. Enforce scoping at the data-access seam. Emit events through the single `track()` seam and add new ones to the catalogue ([Analytics](references/analytics.md#build-phase-4)).
+2. Thin adapters second: routes, controllers, templates, CLI. Enforce scoping at the data-access seam. Emit events through the single `track()` wrapper and add new ones to the catalogue with their metric ([Analytics](references/analytics.md#the-track-wrapper-and-test-kit)).
 3. When a test fails unexpectedly, read the full output and trace the root cause before editing. No shotgun fixes. Never weaken a contract-mandated assertion to make it pass.
 4. Once green, simplify the changed files: inline single-use wrappers, drop speculative abstractions and redundant comments. Re-run tests, then `LINT_COMMAND` and `FORMAT_COMMAND`.
 
@@ -180,7 +181,7 @@ it. Routine work within the contract needs no separate architecture review.
 
 1. Run `check_loop.py fingerprint`.
 2. Spawn a fresh `loop-verifier` (`loop-verifier-strict` for medium and high risk). Its prompt gets only: the contract path, the `git diff` of the unit's changes, the `check_loop.py` JSON, and a pointer to [verification steps](references/verification.md). Never pass the maker's reasoning, summaries, or "known issues" notes. The verifier has no write tools, and the guard hook limits its Bash to read-only commands, `check_loop.py`, and `verifier_bash_allow`.
-3. Free live tests run inside `TEST_COMMAND`. If an approved dev-only `ANALYTICS_ACCESS` (or the service's MCP) provides read-back without a separate credential, give the verifier the result labelled **semi-automated**; otherwise a missing required credential blocks verification unless setup is explicitly deferred ([Analytics](references/analytics.md#verify-phase-5)). Paid `[Live]` walkthroughs are not run here: they run at the Phase 6 checkpoint, by the user or with the user's OK for that run.
+3. Free live tests run inside `TEST_COMMAND`. If an approved dev-only `ANALYTICS_ACCESS` (or the service's MCP) provides read-back without a separate credential, give the verifier the result labelled **semi-automated**; before accounts are set up, a skipped analytics `[Live]` test is reported unverified, not passed ([Analytics](references/analytics.md#verify-phase-5)). Paid `[Live]` walkthroughs are not run here: they run at the Phase 6 checkpoint, by the user or with the user's OK for that run.
 4. When it returns, run `check_loop.py fingerprint` again. A different hash voids the verdict; re-run with a new verifier.
 5. It returns the verdict table plus findings with a certainty of 1–10. Findings at 7+ block a PASS (5+ for high risk); 4–6 are listed as **Unverified**; below 4 are dropped.
 6. **On FAIL**: a new maker gets the contract path plus the findings, then a **new** verifier re-runs the full gate. Don't reuse the old verifier or narrow its scope to the fixes. After 3 fix → re-verify cycles, stop and ask the user.
@@ -212,14 +213,14 @@ Don't make the user type phase commands. Inspect `active/`, `specs/`, and `tests
 - No plan → Phases 1–2; pause for approval.
 - No approved architecture baseline, or a material architecture change → ask the user to run `/product-architecture` and stop before sequencing or building the affected work.
 - Incomplete unit in `plan.md` → Phases 3–6 for it in one sequence, each through its role; pause at the Phase 6 checkpoint.
-- **P0 checkpoint**: after the last P0 unit, pause before any P1 work. The user runs the P0 journeys hands-on and the paid `[Live]` walkthroughs shipped so far, and confirms the hypothesis-metric events are arriving. If setup is deferred, report measurement as blocked; the checkpoint is not complete and P1 work does not start until the gate is met. Before real users, ask the user to run `/product-launch-audit` and wait for its results; do not invoke it automatically or bypass launch gates. If what they learn changes priorities, update the spec and re-run `check_loop.py plan`.
+- **P0 checkpoint**: after the last P0 unit, pause before any P1 work. The user runs the P0 journeys hands-on and the paid `[Live]` walkthroughs shipped so far, and confirms the hypothesis-metric events are arriving. If analytics isn't set up yet, ask the user to set it up now and report measurement as blocked; the checkpoint is not complete and P1 work does not start until the gate is met. Before real users, ask the user to run `/product-launch-audit` and wait for its results; do not invoke it automatically or bypass launch gates. If what they learn changes priorities, update the spec and re-run `check_loop.py plan`.
 
 ---
 
 ## References
 
 * [Guardrails: locks, not prompts](references/guardrails.md)
-* [Analytics: instrumented by default](references/analytics.md)
+* [Analytics: planned metrics, set up when needed](references/analytics.md)
 * [Verification steps (Phase 5)](references/verification.md)
 * [Scenario discovery and clarification](references/scenarios.md)
 * [LLM and probabilistic failure archetypes](references/llm-failure-archetypes.md)

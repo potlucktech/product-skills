@@ -1,6 +1,6 @@
 # Milestone NN — [Milestone Name]
 
-*Built from [`specs/product/<slug>.md`](../../specs/product/<slug>.md) and the approved [architecture plan](../../specs/product/architecture-plan.md). Every unit below has a contract in `units/`. Order: walking skeleton → P0 → P1 → P2 → reporting. Validate with `check_loop.py plan`.*
+*Built from [`specs/product/<slug>.md`](../../specs/product/<slug>.md) and the approved [architecture plan](../../specs/product/architecture-plan.md). Every unit below has a contract in `units/`. Order: walking skeleton → P0 → P1 → P2 → optional reporting. Validate with `check_loop.py plan`.*
 
 ## Target End State
 
@@ -13,9 +13,10 @@
 | 01 | Walking skeleton + load-bearing decisions | infra | all | P0 | todo |
 | 02 | [Infra the P0 journey needs] | infra | F1 | P0 | todo |
 | 03 | [P0 journey] | journey | F1 | P0 | todo |
-| 04 | [P1 journey] | journey | F2 | P1 | todo |
-| 05 | [P2 journey] | journey | F3 | P2 | todo |
-| 06 | Analytics dashboard & reports | reporting | all | — | todo |
+| 04 | Analytics instrumentation *(only if analytics setup is later)* | infra | F1 | P0 | todo |
+| 05 | [P1 journey] | journey | F2 | P1 | todo |
+| 06 | [P2 journey] | journey | F3 | P2 | todo |
+| 07 | Reports *(optional: only reports the analytics tool doesn't provide)* | reporting | all | — | todo |
 
 *`Type`: infra · journey · reporting. `Serves`: flow ids, or `all`. `Tier` = most important tier among the flows served. **P0 checkpoint** comes after the last P0 unit.*
 
@@ -28,6 +29,7 @@ the approved baseline is still sufficient.*
 - **Initial delivery:** [Approved decisions and components, with plan links]
 - **Later / not applicable:** [Concrete needs and their planned unit or later milestone and triggers]
 - **Interim boundaries and gates:** [Safeguards needed before a deferred control is implemented, and the release/usage gate; or none]
+- **Analytics:** [Setup now or later; planned metrics and which units emit their events; PII rules; replay if planned; or no metrics planned]
 - **Risk-profile safeguards:** [Applicable safeguards and AI evaluation coverage mapped to units and verification before the relevant use; deferred work, interim boundaries, owners and triggers; or none]
 - **Baseline assessment:** [Why it remains sufficient, or link to an approved impact review]
 

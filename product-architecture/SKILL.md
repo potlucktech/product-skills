@@ -137,6 +137,23 @@ pillar or concern not applicable only with a reason.
 5. **Failure & rollback** — likely dependency and data failures, safe retry or recovery behavior,
    backup/restore and deployment rollback approach, and who needs to act when recovery is manual.
 
+Always ask about analytics; it is part of the long-term plan even when setup waits. Agree with
+the user which metrics matter, starting with the spec's hypothesis metric, and who or what reads
+each one: every planned event must feed a named metric, report or decision. Recommend a tool for
+those metrics (for example PostHog or Mixpanel); if the user wants to decide later, record
+"choose before real users" instead of inventing one. Record the PII rules for event data (what is
+never sent, what is hashed or truncated, such as user IDs, emails, free text and IP addresses),
+applied through the tool's own settings and filtering hook where available. Record when it must
+be live: by default, events behind the hypothesis metric arriving before real users. Setting up
+accounts can wait until then.
+
+Session replay and acquisition tracking are not defaults. Recommend replay only where it would
+answer a real question (complex UI flows, unexplained drop-off), and record its masking,
+exclusions, access, retention, disclosure and consent; it stays off for real users until those
+are verified. Plan acquisition tracking for when there is traffic to attribute, usually launch.
+Do not assume scrubbed data is anonymous or legal requirements are satisfied; record material
+unknowns and required review.
+
 Do not turn every checklist row into a new service or process. State the minimum adequate
 approach for the current stage and name the condition that would justify strengthening it.
 

@@ -72,8 +72,8 @@
 - **T4 [Guardrail] (integration)** — *(medium and high risk)* [Each lock holds: the blocked action stays blocked, e.g. an unapproved recipient is rejected, a delete with the dev login fails]
 - **T5 [Abuse] (integration)** — *(high risk)* [Injection in a document does nothing, wrong-tenant access denied, replayed request rejected]
 - **T6 [Data Invariant / Security / Concurrency] (integration)** — [Data scoping, idempotency, or invariant held]. *Fails if broken: [e.g. duplicate records]*. *Doesn't prove: [what a pass leaves untested, e.g. a mocked clock says nothing about the user's timezone] (optional)*
-- **T7 [Instrumentation] (integration + e2e)** — *(journey units)* Drive each flow in this unit; assert every event in section C fires with its listed properties via the fake sink's `assert_tracked` (server) and intercepted analytics requests or the offline seam (browser). New events added to the catalogue. *Fails if broken: the metrics this unit feeds are silently empty.*
-- **T8 [Live] (live)** — *(units that call a free outside service)* [Run the flow against the real dev/sandbox service and read back the result, e.g. each section C event arrives in the dev analytics project with its properties, tagged with the run id]. Skipped and reported when the dev key is absent. *Fails if broken: [the real service rejects or drops what we send]*
+- **T7 [Instrumentation] (integration + e2e)** — *(units that list events in section C)* Drive each flow in this unit; assert every event in section C fires with its listed properties via the fake sink's `assert_tracked` (server) and intercepted analytics requests (browser). New events added to the catalogue with their metric. *Fails if broken: [the metric this unit feeds] is silently empty.*
+- **T8 [Live] (live)** — *(units that call a free outside service, including analytics once its accounts are set up)* [Run the flow against the real dev/sandbox service and read back the result, e.g. each section C event arrives in the dev analytics project with its properties, tagged with the run id]. Skipped and reported unverified when the dev key is absent. *Fails if broken: [the real service rejects or drops what we send]*
 
 *End-to-end coverage: `[tests/e2e/test_NN_*.py]` ([which T tokens]). Live coverage: `[tests/live/test_NN_*.py]` ([which T tokens]).*
 
@@ -85,8 +85,8 @@
 - **M4 [Live]** — *(units with a paid or non-automatable outside call)* **Cost**: [e.g. ~$0.30 per run: 12 model calls | free, but needs a real phone]. **When**: [unit checkpoint, P0 checkpoint, and whenever <prompt/model/provider> changes]. **Steps**: [...]. **Expected**: [...]. Run by the user, or by the orchestrator only with the user's OK for that run.
 
 ### C. Instrumentation
-*Events emitted through the analytics seam (`ANALYTICS_PLATFORM` in CONFIG.md). Journey units: one view + one primary-action event per capability; P0 journeys also emit their hypothesis-metric events. Reporting unit: list the dashboards/queries built instead.*
-- `[event_name]` — [Trigger]. Properties: `[prop]`, `[prop]`.
+*Only events behind a metric in the architecture plan's Analytics section, emitted through the `track()` wrapper (`ANALYTICS_PLATFORM` in CONFIG.md). Write `None` if this unit produces no planned metric. Reporting unit: list the dashboards/queries built instead.*
+- `[event_name]` — [Trigger]. Properties: `[prop]`, `[prop]`. Metric: [planned metric it feeds]
 
 ---
 
@@ -99,9 +99,9 @@
 
 ## Acceptance Criteria
 
-- [ ] Offline automated test cases (`T1..Tn`) pass; free live tests pass, or a user-approved deferral is documented and live delivery is reported unverified.
+- [ ] Offline automated test cases (`T1..Tn`) pass; free live tests pass, or are reported unverified while the service's accounts aren't set up.
 - [ ] All manual E2E scenarios (`M1..Mk`) verified and documented.
-- [ ] Every Instrumentation event fires with its listed properties.
+- [ ] Every Instrumentation event (if any) fires with its listed properties, after the PII rules.
 - [ ] Locks for this unit's risk level exist and their `[Guardrail]` / `[Abuse]` tests pass; guardrail config unchanged, or the change is in the cited ADR.
 - [ ] Relevant architecture ownership boundaries and interim safeguards hold; any release/usage gate remains explicit.
 - [ ] [Semantic criterion 1: e.g. Domain logic is 100% deterministic and isolated from UI]

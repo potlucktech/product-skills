@@ -32,14 +32,16 @@ VIEWPORT_BREAKPOINTS: 1440, 1280, 991, 767, 479, 375
 # min-width/max-width media queries so wide-screen tiers aren't missed.
 PARITY_REFERENCE_URL: 
 
-# Illustrative analytics values only: replace them with the approved architecture's mechanism.
-# Session replay is a separate opt-in; these fields do not enable it. Where a vendor needs projects,
-# separate dev and prod; a human configures keys in Phase 0 or records an approved setup deferral.
+# Analytics follows the architecture plan's Analytics section. ANALYTICS_SETUP is `now` or `later`
+# (Phase 0 asks; later is fine). Leave the other fields blank until the tool is chosen; the values
+# below are illustrative. Separate dev and prod projects; a human configures the keys.
+ANALYTICS_SETUP: later
 ANALYTICS_PLATFORM: mixpanel
 # How the agent reaches it: an MCP server name or an API base URL (keys stay in env, never here)
 ANALYTICS_ACCESS: mcp:mixpanel
-ACQUISITION_ANALYTICS: google-analytics
-# The event catalogue the skeleton creates: every event name with its required properties (see SKILL.md, Analytics test kit).
+# Only when the plan schedules acquisition tracking (usually launch).
+ACQUISITION_ANALYTICS: 
+# The event catalogue: each event, its properties and the metric it feeds (references/analytics.md).
 ANALYTICS_CATALOGUE: app/analytics_events.py
 
 # Model routing. Each role runs at a tier; each tool maps tiers to its models.

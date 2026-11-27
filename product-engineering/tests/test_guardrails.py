@@ -636,8 +636,17 @@ class ContractTests(RepoCase):
         both = guardrail + "\n- **T4 [Abuse]** — injection does nothing"
         self.assertEqual(self.check(contract("high", extra=both))["errors"], [])
 
-    def test_journey_needs_instrumentation_scenario(self):
+    def test_listed_events_need_instrumentation_scenario(self):
         text = contract().replace("- **T2 [Instrumentation]** — events asserted\n", "")
+        self.assertTrue(any("[Instrumentation]" in e for e in self.check(text)["errors"]))
+
+    def test_journey_without_planned_events_ok(self):
+        text = contract().replace("- **T2 [Instrumentation]** — events asserted\n", "").replace(
+            "- `thing_viewed` — on view. Properties: `id`", "None — this unit produces no planned metric.")
+        self.assertEqual(self.check(text)["errors"], [])
+
+    def test_infra_unit_with_events_needs_instrumentation_scenario(self):
+        text = contract().replace("**Type**: journey", "**Type**: infra").replace("- **T2 [Instrumentation]** — events asserted\n", "")
         self.assertTrue(any("[Instrumentation]" in e for e in self.check(text)["errors"]))
 
     def test_journey_needs_e2e_happy_path(self):
